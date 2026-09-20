@@ -231,6 +231,12 @@
       <select id="exSelect"></select>
       <div id="exChart"></div>
     </div>
+
+    <div class="card">
+      <h3>BACKUP</h3>
+      <p class="fallback-toggle" style="margin-bottom:10px;">Downloads every logged workout as one file. Works the same on phone or laptop — whatever browser you open this page in.</p>
+      <button class="btn btn-block" id="exportBtn">Export All Data (.json)</button>
+    </div>
   </div>
 </div>
 
@@ -748,6 +754,24 @@ function renderExerciseChart(name){
   el.innerHTML = svg + `<div class="fallback-toggle">Latest: ${latestLabel} on ${new Date(latest.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</div>`;
 }
 
+// ===================== BACKUP / EXPORT =====================
+function exportData(){
+  const payload = {
+    exported_at: new Date().toISOString(),
+    session_count: sessions.length,
+    sessions: sessions
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `iron-log-backup-${todayStr()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 // ===================== EVENTS =====================
 function bindEvents(){
   document.getElementById('logSetBtn').onclick = logSet;
@@ -758,6 +782,7 @@ function bindEvents(){
   document.getElementById('freeLogBtn').onclick = handleFreeLog;
   document.getElementById('freeInput').addEventListener('keydown', e=>{ if(e.key==='Enter') handleFreeLog(); });
 
+  document.getElementById('exportBtn').onclick = exportData;
   document.getElementById('dayOverride').addEventListener('change', e=>{
     startDay(e.target.value);
     render();
