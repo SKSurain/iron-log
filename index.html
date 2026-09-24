@@ -176,6 +176,7 @@
         <button class="btn" id="logSetBtn">LOG SET</button>
       </div>
       <div class="fallback-toggle" id="repsUnitHint"></div>
+      <button class="btn-ghost btn-block" id="skipExBtn" style="margin-top:10px;">Skip — already done earlier</button>
     </div>
 
     <div id="restCard" class="card hidden">
@@ -439,7 +440,16 @@ function render(){
     div.className = 'queue-item' + (ex._complete ? ' done' : '') + (isCurrent ? ' current' : '');
     const unit = ex.type === 'hold' ? 'sec' : (ex.type === 'distance' ? 'm' : 'reps');
     div.innerHTML = `<div class="qi-dot">${ex._complete ? '✓' : (i+1)}</div>
-      <div><div class="qi-name">${ex.name}</div><div class="qi-sub">${ex.sets}×${ex.repLow===ex.repHigh?ex.repLow:ex.repLow+'-'+ex.repHigh} ${unit}${ex.weighted?' · '+(ex.weight!=null?ex.weight+'kg':'bodyweight'):''}</div></div>`;
+      <div><div class="qi-name">${ex.name}</div><div class="qi-sub">${ex.sets}×${ex.repLow===ex.repHigh?ex.repLow:ex.repLow+'-'+ex.repHigh} ${unit}${ex.weighted?' · '+(ex.weight!=null?ex.weight+'kg':'bodyweight'):''}${ex._skipped?' · skipped':''}</div></div>`;
+    if(!ex._complete){
+      div.style.cursor = 'pointer';
+      div.onclick = () => {
+        state.current = i;
+        saveActive(state);
+        render();
+        document.getElementById('exerciseCard').scrollIntoView({behavior:'smooth', block:'nearest'});
+      };
+    }
     q.appendChild(div);
   });
 
@@ -448,6 +458,11 @@ function render(){
     return;
   }
   renderExerciseCard();
+}
+
+function firstIncompleteIndex(){
+  for(let i=0;i<state.exercises.length;i++){ if(!state.exercises[i]._complete) return i; }
+  return -1;
 }
 
 function allDone(){
@@ -542,7 +557,20 @@ function completeExercise(ex){
   } else {
     box.innerHTML = `<div class="achieve">✅ ${ex.name} done. Logged.</div>`;
   }
-  state.current++;
+  state.current = firstIncompleteIndex();
+  saveActive(state);
+  document.getElementById('restCard').classList.add('hidden');
+  render();
+}
+
+function skipExercise(){
+  const ex = state.exercises[state.current];
+  initExerciseRuntime(ex);
+  ex._complete = true;
+  ex._skipped = true;
+  const box = document.getElementById('achieveBox');
+  box.innerHTML = `<div class="achieve">⏭ ${ex.name} skipped — marked as already done today.</div>`;
+  state.current = firstIncompleteIndex();
   saveActive(state);
   document.getElementById('restCard').classList.add('hidden');
   render();
@@ -593,12 +621,14 @@ function readyForNext(){
 
 // ===================== FINISH & SAVE =====================
 async function saveWorkout(){
-  const exercises = state.exercises.map(e => ({
-    name: e.name,
-    weight: e.weighted ? e.weight : null,
-    reps: e.setLog.map(s=>s.reps),
-    restActualSec: e.setLog.map(s=>s.restActualSec)
-  }));
+  const exercises = state.exercises
+    .filter(e => e.setLog && e.setLog.length > 0)
+    .map(e => ({
+      name: e.name,
+      weight: e.weighted ? e.weight : null,
+      reps: e.setLog.map(s=>s.reps),
+      restActualSec: e.setLog.map(s=>s.restActualSec)
+    }));
   const session = {date: state.date, exercises};
   await insertCompletedSession(session);
   sessions.push(session);
@@ -775,6 +805,7 @@ function exportData(){
 // ===================== EVENTS =====================
 function bindEvents(){
   document.getElementById('logSetBtn').onclick = logSet;
+  document.getElementById('skipExBtn').onclick = skipExercise;
   document.getElementById('repsInput').addEventListener('keydown', e=>{ if(e.key==='Enter') logSet(); });
   document.getElementById('pauseBtn').onclick = togglePause;
   document.getElementById('readyBtn').onclick = readyForNext;
