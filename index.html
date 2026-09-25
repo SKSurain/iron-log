@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>IRON LOG</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -254,7 +257,7 @@
 // ===================== CONFIG =====================
 const SUPABASE_URL = 'https://iehpagvflcenkfrujyjy.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_6WZrZriQc-te1hGVlPOpjw_S0IQpDJD';
-const APP_VERSION = 'v1.5 · 2026-09-25';
+const APP_VERSION = 'v1.6 · 2026-09-25';
 const CLOUD_ENABLED = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 10;
 const sb = CLOUD_ENABLED ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 const TABLE = 'iron_log_sessions';
