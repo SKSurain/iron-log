@@ -127,6 +127,7 @@
   <div class="tabs">
     <div class="tab active" data-tab="workout">Workout</div>
     <div class="tab" data-tab="dashboard">Dashboard</div>
+    <div class="tab" data-tab="rewards">Rewards</div>
   </div>
 
   <!-- WORKOUT TAB -->
@@ -234,10 +235,29 @@
       <div class="stat-row">
         <div class="stat"><div class="num" id="statWeek">0</div><div class="lbl">This Week</div></div>
         <div class="stat"><div class="num" id="statStreak">0</div><div class="lbl">Day Streak</div></div>
-        <div class="stat"><div class="num" id="statTotal">0</div><div class="lbl">Total Sessions</div></div>
+        <div class="stat"><div class="num" id="statTotal">0</div><div class="lbl">Training Days</div></div>
       </div>
       <h3 style="margin-top:16px;">LAST 8 WEEKS</h3>
       <div class="bars" id="weekBars"></div>
+    </div>
+    <div class="card">
+      <h3>STRENGTH LEVEL</h3>
+      <p class="fallback-toggle" style="margin-bottom:10px;">Just-for-fun estimates, not real Malaysia population data.</p>
+      <div id="strengthLevelList"></div>
+    </div>
+    <div class="card">
+      <h3>WEEKLY AI MOTIVATION</h3>
+      <button class="btn btn-block" id="copyPerfBtn">📋 Copy This Week's Performance for AI</button>
+      <div id="aiMotivationDisplay" style="margin-top:14px;"></div>
+      <div style="margin-top:14px;">
+        <p class="fallback-toggle" style="margin-bottom:6px;">Paste it into this IronLog project chat, ask for fresh motivation blocks, then paste Claude's reply back here (it must use "## Exercise Name" headers):</p>
+        <textarea id="aiMotivationInput" rows="6" style="width:100%;background:var(--surface-2);border:1px solid var(--line);color:var(--text);padding:10px;border-radius:10px;font-family:var(--font-mono);font-size:12px;box-sizing:border-box;"></textarea>
+        <button class="btn btn-block" id="saveAiMotivationBtn" style="margin-top:8px;">Save</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>RECENT LIFTS</h3>
+      <div id="recentLifts"></div>
     </div>
     <div class="card">
       <h3>EXERCISE PROGRESS</h3>
@@ -251,13 +271,49 @@
       <button class="btn btn-block" id="exportBtn">Export All Data (.json)</button>
     </div>
   </div>
+
+  <!-- REWARDS TAB -->
+  <div id="tab-rewards" class="hidden">
+    <div class="card">
+      <h3>THIS WEEK</h3>
+      <div style="font-family:var(--font-display);font-size:28px;" id="rewardProgressTxt">0 / 7 days</div>
+      <div class="bars" style="height:10px;margin-top:10px;"><div class="bar-col"><div class="bar hit" id="rewardProgressBar" style="height:10px;width:100%;"></div></div></div>
+      <p class="fallback-toggle" style="margin-top:10px;">Based on all 7 days of the week (Mon–Sun), rest days included — mark your recovery walk done on Sat/Sun to count those too.</p>
+    </div>
+
+    <div id="rewardReadyBanner" class="deload hidden" style="background:rgba(255,201,74,0.14);border-color:var(--warn);color:var(--warn);text-align:center;">
+      <div id="rewardReadyText" style="font-family:var(--font-display);font-size:16px;">🎁 REWARD READY</div>
+      <button class="btn btn-block" id="claimRewardBtn" style="margin-top:10px;background:var(--warn);">🎉 CLAIM REWARD</button>
+    </div>
+    <div id="rewardClaimedNote" class="fallback-toggle hidden" style="text-align:center;margin-bottom:14px;"></div>
+
+    <div class="card">
+      <h3>MY REWARDS</h3>
+      <div id="rewardsList"></div>
+      <div class="logrow" style="margin-top:10px;">
+        <input id="newRewardInput" type="text" placeholder="e.g. Sushi AYCE — RM100-150" autocomplete="off">
+        <button class="btn" id="addRewardBtn">ADD</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="rewardModalOverlay" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px;overflow:hidden;">
+  <div id="confettiLayer" style="position:absolute;inset:0;pointer-events:none;overflow:hidden;"></div>
+  <div style="background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:32px 24px;text-align:center;max-width:380px;width:100%;position:relative;">
+    <div style="font-size:56px;">🎁</div>
+    <div style="font-family:var(--font-display);color:var(--warn);font-size:24px;letter-spacing:0.04em;margin-top:10px;">REWARD UNLOCKED!</div>
+    <div style="font-family:var(--font-body);font-weight:700;font-size:18px;margin-top:14px;line-height:1.4;" id="rewardModalText"></div>
+    <div class="fallback-toggle" style="margin-top:10px;">You earned it. Enjoy it guilt-free. 💪</div>
+    <button class="btn btn-block" id="rewardModalCloseBtn" style="background:#7C5CFF;color:#fff;margin-top:20px;">Nice!</button>
+  </div>
 </div>
 
 <script>
 // ===================== CONFIG =====================
 const SUPABASE_URL = 'https://iehpagvflcenkfrujyjy.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_6WZrZriQc-te1hGVlPOpjw_S0IQpDJD';
-const APP_VERSION = 'v1.6 · 2026-09-25';
+const APP_VERSION = 'v2.3 · 2026-09-26';
 const CLOUD_ENABLED = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 10;
 const sb = CLOUD_ENABLED ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 const TABLE = 'iron_log_sessions';
@@ -428,15 +484,30 @@ async function init(){
   bindEvents();
 }
 
+function buildFreshState(dayKey){
+  if(dayKey === 'rest'){
+    return {date: todayStr(), dayIndex:'rest', __progress:true, current:0, exercises:[]};
+  }
+  const routine = ROUTINE[dayKey];
+  return {
+    date: todayStr(),
+    dayIndex: dayKey,
+    __progress: true,
+    current: 0,
+    exercises: routine.exercises.map(def => ({...def, weight: suggestWeight(def)}))
+  };
+}
+
 function applyLoadedActive(saved, dayKey){
   if(saved && saved.exercises && saved.date === todayStr()){
     state = saved;
   } else if(saved && saved.exercises){
-    // Unfinished session from an older date on this same weekday slot — ask first, don't silently discard.
+    // Unfinished session from an older date on this same weekday slot.
+    // Show today's fresh plan in memory ONLY — nothing is saved/overwritten until you choose.
     window._staleSession = saved;
-    startDay(dayKey);
+    state = buildFreshState(dayKey);
     const dayLabel = ROUTINE[saved.dayIndex] ? ROUTINE[saved.dayIndex].label : saved.dayIndex;
-    document.getElementById('staleText').textContent = `Unfinished ${dayLabel} session from ${saved.date} — resume it or discard?`;
+    document.getElementById('staleText').textContent = `Unfinished ${dayLabel} session from ${saved.date} — resume it or archive & start fresh?`;
     document.getElementById('staleBanner').classList.remove('hidden');
   } else {
     startDay(dayKey);
@@ -453,18 +524,7 @@ async function switchToDay(dayKey){
 }
 
 function startDay(dayKey){
-  if(dayKey === 'rest'){
-    state = {date: todayStr(), dayIndex:'rest', __progress:true, current:0, exercises:[]};
-    return;
-  }
-  const routine = ROUTINE[dayKey];
-  state = {
-    date: todayStr(),
-    dayIndex: dayKey,
-    __progress: true,
-    current: 0,
-    exercises: routine.exercises.map(def => ({...def, weight: suggestWeight(def)}))
-  };
+  state = buildFreshState(dayKey);
   saveActive(state);
 }
 
@@ -585,7 +645,7 @@ async function logSet(){
 
   const restActual = restStartedAt ? Math.round((Date.now() - restStartedAt - pausedAccum)/1000) : null;
 
-  ex.setLog.push({reps: repsVal, weight: weightVal, restActualSec: restActual});
+  ex.setLog.push({reps: repsVal, weight: weightVal, restActualSec: restActual, loggedAt: todayStr()});
   ex._loggedSets++;
   ex.weight = weightVal;
 
@@ -788,13 +848,47 @@ function isoWeekKey(d){
   date.setDate(date.getDate()-day);
   return date.toISOString().slice(0,10);
 }
-function renderDashboard(){
-  document.getElementById('statTotal').textContent = sessions.length;
+
+// Flattens completed sessions + every exercise currently sitting in any in-progress
+// day-slot (even partially done) into one list of {date, name, weight, reps} entries.
+// This is what makes progress visible immediately, before you ever tap "Save & Finish."
+async function buildDashboardEntries(){
+  const entries = [];
+  sessions.forEach(s => {
+    s.exercises.forEach(e => entries.push({date: s.date, name: e.name, weight: e.weight, reps: e.reps}));
+  });
+
+  const dayKeys = ['1','2','3','4','5','rest'];
+  const activeSlots = (await Promise.all(dayKeys.map(k => loadActive(k)))).filter(s => s && s.exercises);
+  activeSlots.forEach(slot => {
+    slot.exercises.forEach(ex => {
+      if(!ex.setLog || ex.setLog.length === 0) return;
+      const byDate = {};
+      ex.setLog.forEach(s => {
+        const d = s.loggedAt || slot.date;
+        (byDate[d] = byDate[d] || []).push(s);
+      });
+      Object.keys(byDate).forEach(d => {
+        const sets = byDate[d];
+        entries.push({date: d, name: ex.name, weight: ex.weighted ? sets[sets.length-1].weight : null, reps: sets.map(s=>s.reps)});
+      });
+    });
+  });
+  return entries;
+}
+
+let lastDashboardEntries = [];
+async function renderDashboard(){
+  const entries = await buildDashboardEntries();
+  lastDashboardEntries = entries;
+  const trainingDates = [...new Set(entries.map(e=>e.date))].sort();
+
+  document.getElementById('statTotal').textContent = trainingDates.length;
   const now = new Date();
   const weekStart = new Date(now); weekStart.setDate(now.getDate() - ((now.getDay()+6)%7)); weekStart.setHours(0,0,0,0);
-  document.getElementById('statWeek').textContent = sessions.filter(s => new Date(s.date) >= weekStart).length;
+  document.getElementById('statWeek').textContent = trainingDates.filter(d => new Date(d) >= weekStart).length;
 
-  const dateSet = new Set(sessions.map(s=>s.date));
+  const dateSet = new Set(trainingDates);
   let streak = 0, cursor = new Date();
   while(true){
     const key = cursor.toISOString().slice(0,10);
@@ -805,7 +899,7 @@ function renderDashboard(){
   const weeks = [];
   for(let i=7;i>=0;i--){ const d = new Date(); d.setDate(d.getDate() - i*7); weeks.push(isoWeekKey(d)); }
   const counts = {};
-  sessions.forEach(s => { const wk = isoWeekKey(s.date); counts[wk] = (counts[wk]||0)+1; });
+  trainingDates.forEach(d => { const wk = isoWeekKey(d); counts[wk] = (counts[wk]||0)+1; });
   const maxCount = Math.max(1, ...weeks.map(w=>counts[w]||0));
   const barsEl = document.getElementById('weekBars');
   barsEl.innerHTML = '';
@@ -819,44 +913,163 @@ function renderDashboard(){
     barsEl.appendChild(col);
   });
 
-  const names = [...new Set(sessions.flatMap(s=>s.exercises.map(e=>e.name.toLowerCase())))];
+  const names = [...new Set(entries.map(e=>e.name.toLowerCase()))];
   const sel = document.getElementById('exSelect');
   const prevVal = sel.value;
   sel.innerHTML = names.length ? names.map(n=>`<option value="${n}">${n}</option>`).join('') : '<option>No data yet</option>';
   if(names.includes(prevVal)) sel.value = prevVal;
-  renderExerciseChart(sel.value);
+  renderExerciseChart(sel.value, entries);
+  renderRecentLifts(entries);
+  renderStrengthLevel(entries);
+  const aiPayload = await loadAiMotivation();
+  renderAiMotivationDisplay(aiPayload);
 }
-function renderExerciseChart(name){
+
+// Percentile anchors match StrengthLevel.com's own published definitions:
+// Beginner=5th, Novice=20th, Intermediate=50th, Advanced=80th, Elite=95th percentile
+// of their logged-lift community (general population, not Malaysia-specific).
+const STRENGTH_STANDARDS = {
+  'Weighted pull-ups': [{level:'Beginner',w:-13,p:5},{level:'Novice',w:8,p:20},{level:'Intermediate',w:34,p:50},{level:'Advanced',w:63,p:80},{level:'Elite',w:93,p:95}],
+  'Weighted dips':      [{level:'Beginner',w:-8, p:5},{level:'Novice',w:18,p:20},{level:'Intermediate',w:50,p:50},{level:'Advanced',w:86,p:80},{level:'Elite',w:125,p:95}],
+  'Barbell back squat': [{level:'Beginner',w:64, p:5},{level:'Novice',w:93,p:20},{level:'Intermediate',w:130,p:50},{level:'Advanced',w:173,p:80},{level:'Elite',w:219,p:95}]
+};
+function estimatePercentile(weight, tiers){
+  if(weight <= tiers[0].w) return Math.max(1, Math.round(tiers[0].p * Math.max(0, weight - (tiers[0].w-20)) / 20));
+  for(let i=0;i<tiers.length-1;i++){
+    const a=tiers[i], b=tiers[i+1];
+    if(weight >= a.w && weight <= b.w) return Math.round(a.p + ((weight-a.w)/(b.w-a.w))*(b.p-a.p));
+  }
+  const top = tiers[tiers.length-1];
+  return Math.min(99, Math.round(top.p + (weight-top.w)/(top.w*0.3)));
+}
+function levelLabel(pct){
+  if(pct<20) return 'Beginner';
+  if(pct<50) return 'Novice';
+  if(pct<80) return 'Intermediate';
+  if(pct<95) return 'Advanced';
+  return 'Elite';
+}
+const WEIGHT_COMPARISONS = [
+  {kg:5, text:'a 5kg bag of sugar'},
+  {kg:10, text:'a 10kg bag of rice'},
+  {kg:15, text:'the max airline carry-on bag'},
+  {kg:20, text:'a full checked-in luggage bag'},
+  {kg:25, text:'a large sack of rice'},
+  {kg:32, text:'a standard LPG gas cylinder'},
+  {kg:40, text:'four stacked rice sacks'},
+  {kg:50, text:'a 50kg cement bag'},
+  {kg:60, text:'a fully loaded travel suitcase and a half'},
+  {kg:70, text:'roughly an adult human'},
+  {kg:90, text:'a loaded mountain bike plus rider'},
+  {kg:110, text:'a small kapchai motorcycle'}
+];
+function pickComparison(kg){
+  let best = WEIGHT_COMPARISONS[0], bestDiff = Infinity;
+  WEIGHT_COMPARISONS.forEach(c=>{ const d=Math.abs(c.kg-kg); if(d<bestDiff){ bestDiff=d; best=c; } });
+  return best.text;
+}
+function renderStrengthLevel(entries){
+  const el = document.getElementById('strengthLevelList');
+  if(!el) return;
+  el.innerHTML = Object.keys(STRENGTH_STANDARDS).map(name=>{
+    const matches = entries.filter(e=>e.name===name && e.weight!=null).sort((a,b)=>a.date.localeCompare(b.date));
+    if(matches.length===0){
+      return `<div class="exline"><div class="exname">${name}</div><div class="qi-sub">log this to see</div></div>`;
+    }
+    const latest = matches[matches.length-1];
+    const tiers = STRENGTH_STANDARDS[name];
+    const pct = estimatePercentile(latest.weight, tiers);
+    const topPct = Math.max(1, 100-pct);
+    const comparison = pickComparison(latest.weight);
+
+    let projectionLine = '';
+    const nextTier = tiers.find(t => t.w > latest.weight);
+    if(nextTier && matches.length >= 2){
+      const perStepChange = (matches[matches.length-1].weight - matches[0].weight)/(matches.length-1);
+      if(perStepChange > 0.01){
+        const stepsNeeded = (nextTier.w - latest.weight)/perStepChange;
+        const daysSpan = (new Date(matches[matches.length-1].date) - new Date(matches[0].date))/86400000;
+        const entriesPerWeek = matches.length/Math.max(1, daysSpan/7);
+        const weeksNeeded = entriesPerWeek>0 ? Math.max(1, Math.round(stepsNeeded/entriesPerWeek)) : null;
+        if(weeksNeeded){
+          projectionLine = `<div style="margin-top:6px;">At this rate, you could hit ~${nextTier.w}kg (top ${100-nextTier.p}% in Malaysia) in about ${weeksNeeded} week${weeksNeeded>1?'s':''}. Keep going! 🔥</div>`;
+        }
+      }
+    }
+
+    return `<div style="padding:14px 0;border-bottom:1px solid var(--line);">
+      <div class="exname" style="font-size:15px;">${name} — ${latest.weight}kg, ${latest.reps.join('/')}</div>
+      <div style="font-family:var(--font-display);color:var(--accent);font-size:19px;margin-top:6px;">🇲🇾 Top ${topPct}% in Malaysia</div>
+      <div style="font-family:var(--font-body);font-size:13px;color:var(--text-dim);margin-top:4px;line-height:1.5;">
+        That's like moving ${comparison} — every single rep.
+        ${projectionLine}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderRecentLifts(entries){
+  const el = document.getElementById('recentLifts');
+  if(!el) return;
+  const byName = {};
+  entries.forEach(e => {
+    if(!byName[e.name] || e.date > byName[e.name].date) byName[e.name] = e;
+  });
+  const rows = Object.values(byName).sort((a,b)=> b.date.localeCompare(a.date)).slice(0,12);
+  if(rows.length === 0){ el.innerHTML = '<div class="empty">Log a few exercises to see them here</div>'; return; }
+  el.innerHTML = rows.map(r=>{
+    const w = r.weight!=null ? `${r.weight}kg` : 'body';
+    const dateLbl = new Date(r.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+    return `<div class="exline"><div><div class="exname">${r.name}</div><div class="exsets">${w} · ${r.reps.join('/')}</div></div><div class="qi-sub">${dateLbl}</div></div>`;
+  }).join('');
+}
+
+function renderExerciseChart(name, entries){
   const el = document.getElementById('exChart');
   if(!name){ el.innerHTML = '<div class="empty">Log a few sessions to see progress</div>'; return; }
-  const points = [];
-  sessions.forEach(s=>{
-    s.exercises.forEach(e=>{
-      if(e.name.toLowerCase() === name){
-        const maxReps = Math.max(...e.reps);
-        const score = e.weight!=null ? e.weight : maxReps;
-        points.push({date: s.date, score, weight: e.weight, reps: e.reps});
-      }
+  const points = entries
+    .filter(e => e.name.toLowerCase() === name)
+    .sort((a,b)=> a.date.localeCompare(b.date))
+    .map(e => {
+      const maxReps = Math.max(...e.reps);
+      const score = e.weight!=null ? e.weight : maxReps;
+      return {date: e.date, score, weight: e.weight, reps: e.reps};
     });
-  });
   if(points.length === 0){ el.innerHTML = '<div class="empty">No entries for this exercise yet</div>'; return; }
   const w = 460, h = 140, pad = 24;
-  const maxScore = Math.max(...points.map(p=>p.score), 1);
-  const minScore = Math.min(...points.map(p=>p.score), 0);
+  const projectionSteps = points.length >= 2 ? 2 : 0;
+  const perStepChange = points.length >= 2 ? (points[points.length-1].score - points[0].score) / (points.length-1) : 0;
+  const projScore = points[points.length-1].score + perStepChange*projectionSteps;
+
+  const allScores = points.map(p=>p.score).concat(projectionSteps ? [projScore] : []);
+  const maxScore = Math.max(...allScores, 1);
+  const minScore = Math.min(...allScores, 0);
   const range = Math.max(1, maxScore - minScore);
-  const stepX = points.length > 1 ? (w - pad*2)/(points.length-1) : 0;
-  const coords = points.map((p,i)=>{
-    const x = pad + i*stepX;
-    const y = h - pad - ((p.score-minScore)/range)*(h-pad*2);
-    return {x,y,p};
-  });
+  const totalSlots = Math.max(1, points.length - 1 + projectionSteps);
+  const stepX = (w - pad*2)/totalSlots;
+  const scoreToY = s => h - pad - ((s-minScore)/range)*(h-pad*2);
+
+  const coords = points.map((p,i)=>({x: pad+i*stepX, y: scoreToY(p.score), p}));
   const pathD = coords.map((c,i)=> (i===0?'M':'L') + c.x.toFixed(1) + ',' + c.y.toFixed(1)).join(' ');
   let svg = `<svg width="100%" viewBox="0 0 ${w} ${h}" style="margin-top:6px;"><path d="${pathD}" fill="none" stroke="#FF5A1F" stroke-width="2.5"/>`;
   coords.forEach(c=>{ svg += `<circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="3.5" fill="#FF5A1F"/>`; });
+
+  if(projectionSteps){
+    const projX = pad + (points.length-1+projectionSteps)*stepX;
+    const projYc = scoreToY(projScore);
+    const last = coords[coords.length-1];
+    svg += `<line x1="${last.x.toFixed(1)}" y1="${last.y.toFixed(1)}" x2="${projX.toFixed(1)}" y2="${projYc.toFixed(1)}" stroke="#9A9DA6" stroke-width="2" stroke-dasharray="4,4"/>`;
+    svg += `<circle cx="${projX.toFixed(1)}" cy="${projYc.toFixed(1)}" r="3.5" fill="none" stroke="#9A9DA6" stroke-width="1.5"/>`;
+  }
   svg += `</svg>`;
+
   const latest = points[points.length-1];
   const latestLabel = latest.weight!=null ? `${latest.weight}kg × ${latest.reps.join('/')}` : `${latest.reps.join('/')} reps (bodyweight)`;
-  el.innerHTML = svg + `<div class="fallback-toggle">Latest: ${latestLabel} on ${new Date(latest.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</div>`;
+  let footer = `<div class="fallback-toggle">Latest: ${latestLabel} on ${new Date(latest.date).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</div>`;
+  if(projectionSteps && Math.abs(perStepChange) > 0.01){
+    footer += `<div class="fallback-toggle">Dashed = your own trend projected forward (${perStepChange>0?'+':''}${perStepChange.toFixed(1)}${latest.weight!=null?'kg':' reps'} per entry, based on your last ${points.length} logs).</div>`;
+  }
+  el.innerHTML = svg + footer;
 }
 
 // ===================== BACKUP / EXPORT =====================
@@ -877,6 +1090,264 @@ function exportData(){
   URL.revokeObjectURL(url);
 }
 
+// ===================== REWARDS =====================
+// Reuses the same table via dedicated row ids — no schema change needed.
+async function loadRewardsConfig(){
+  let local = null;
+  try{ const raw = localStorage.getItem('ironlog_rewards_config'); if(raw) local = JSON.parse(raw); }catch(e){}
+  if(CLOUD_ENABLED){
+    try{
+      const {data, error} = await sb.from(TABLE).select('*').eq('id','rewards-config').maybeSingle();
+      if(!error && data && data.exercises) return data.exercises;
+    }catch(e){ console.error(e); }
+  }
+  return local || {rewards:[]};
+}
+async function saveRewardsConfig(config){
+  try{ localStorage.setItem('ironlog_rewards_config', JSON.stringify(config)); }catch(e){}
+  if(CLOUD_ENABLED){
+    try{ await sb.from(TABLE).upsert({id:'rewards-config', date: todayStr(), exercises: config, status:'config'}); }catch(e){ console.error(e); }
+  }
+}
+async function loadClaims(weekKey){
+  const rowId = 'reward-claim-' + weekKey;
+  let local = null;
+  try{ const raw = localStorage.getItem('ironlog_claim_' + weekKey); if(raw) local = JSON.parse(raw); }catch(e){}
+  if(CLOUD_ENABLED){
+    try{
+      const {data, error} = await sb.from(TABLE).select('*').eq('id',rowId).maybeSingle();
+      if(!error && data && data.exercises) return data.exercises.claims || [];
+    }catch(e){ console.error(e); }
+  }
+  return (local && local.claims) || [];
+}
+async function addClaimRecord(weekKey, rewardText, existingClaims){
+  const claims = [...existingClaims, {rewardText, claimedAt: Date.now()}];
+  try{ localStorage.setItem('ironlog_claim_' + weekKey, JSON.stringify({claims})); }catch(e){}
+  if(CLOUD_ENABLED){
+    try{ await sb.from(TABLE).upsert({id:'reward-claim-'+weekKey, date: todayStr(), exercises: {claims}, status:'claim'}); }catch(e){ console.error(e); }
+  }
+  return claims;
+}
+
+let rewardsConfig = {rewards:[]};
+let editingRewardId = null;
+
+function renderRewardsListUI(){
+  const el = document.getElementById('rewardsList');
+  if(rewardsConfig.rewards.length === 0){ el.innerHTML = '<div class="empty">No rewards added yet — add one below.</div>'; return; }
+  el.innerHTML = rewardsConfig.rewards.map(r => {
+    if(r.id === editingRewardId){
+      return `<div class="exline">
+        <input type="text" value="${r.text.replace(/"/g,'&quot;')}" id="editInput-${r.id}" style="flex:1;background:var(--surface-2);border:1px solid var(--line);color:var(--text);padding:8px;border-radius:8px;font-family:var(--font-body);font-size:13px;">
+        <button class="btn-ghost" style="padding:6px 10px;font-size:11px;" onclick="saveEditedReward('${r.id}')">Save</button>
+      </div>`;
+    }
+    return `<div class="exline">
+      <div class="exname" style="font-family:var(--font-body);font-weight:600;font-size:14px;">${r.text}</div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn-ghost" style="padding:6px 10px;font-size:11px;" onclick="editReward('${r.id}')">Edit</button>
+        <button class="btn-ghost" style="padding:6px 10px;font-size:11px;" onclick="deleteReward('${r.id}')">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function addReward(){
+  const input = document.getElementById('newRewardInput');
+  const text = input.value.trim();
+  if(!text) return;
+  rewardsConfig.rewards.push({id: crypto.randomUUID(), text});
+  await saveRewardsConfig(rewardsConfig);
+  input.value = '';
+  renderRewardsListUI();
+}
+async function deleteReward(id){
+  rewardsConfig.rewards = rewardsConfig.rewards.filter(r => r.id !== id);
+  await saveRewardsConfig(rewardsConfig);
+  renderRewardsListUI();
+}
+function editReward(id){
+  editingRewardId = id;
+  renderRewardsListUI();
+}
+async function saveEditedReward(id){
+  const input = document.getElementById('editInput-'+id);
+  const text = input.value.trim();
+  if(text){
+    const r = rewardsConfig.rewards.find(r => r.id === id);
+    if(r) r.text = text;
+    await saveRewardsConfig(rewardsConfig);
+  }
+  editingRewardId = null;
+  renderRewardsListUI();
+}
+window.deleteReward = deleteReward;
+window.editReward = editReward;
+window.saveEditedReward = saveEditedReward;
+
+// Tiers: 75%+ of target training days this week = 1 reward, 95%+ = 2 rewards.
+async function renderRewardsTab(){
+  rewardsConfig = await loadRewardsConfig();
+  renderRewardsListUI();
+
+  const entries = await buildDashboardEntries();
+  const weekKey = isoWeekKey(todayStr());
+  const trainingDaysThisWeek = [...new Set(entries.filter(e => isoWeekKey(e.date) === weekKey).map(e => e.date))].length;
+  const WEEK_TOTAL_DAYS = 7;
+  const pct = Math.round((trainingDaysThisWeek/WEEK_TOTAL_DAYS)*100);
+
+  document.getElementById('rewardProgressTxt').textContent = `${trainingDaysThisWeek} / ${WEEK_TOTAL_DAYS} days (${pct}%)`;
+  document.getElementById('rewardProgressBar').style.width = Math.min(100,pct) + '%';
+
+  let eligible = 0;
+  if(pct >= 95) eligible = 2;
+  else if(pct >= 75) eligible = 1;
+
+  const claims = await loadClaims(weekKey);
+  window._currentClaims = claims;
+  window._currentWeekKey = weekKey;
+  const remaining = eligible - claims.length;
+
+  const banner = document.getElementById('rewardReadyBanner');
+  const claimedNote = document.getElementById('rewardClaimedNote');
+  if(remaining > 0 && rewardsConfig.rewards.length > 0){
+    banner.classList.remove('hidden');
+    document.getElementById('rewardReadyText').textContent = `🎁 ${remaining} REWARD${remaining>1?'S':''} READY`;
+  } else {
+    banner.classList.add('hidden');
+  }
+  if(claims.length > 0){
+    claimedNote.classList.remove('hidden');
+    claimedNote.textContent = `✅ Claimed this week: ${claims.map(c=>c.rewardText).join(', ')}`;
+  } else {
+    claimedNote.classList.add('hidden');
+  }
+}
+
+async function claimReward(){
+  if(rewardsConfig.rewards.length === 0) return;
+  const pick = rewardsConfig.rewards[Math.floor(Math.random()*rewardsConfig.rewards.length)];
+  const claims = await addClaimRecord(window._currentWeekKey, pick.text, window._currentClaims || []);
+  window._currentClaims = claims;
+  document.getElementById('rewardModalText').textContent = pick.text;
+  document.getElementById('rewardModalOverlay').classList.remove('hidden');
+  spawnConfetti();
+  renderRewardsTab();
+}
+function spawnConfetti(){
+  const layer = document.getElementById('confettiLayer');
+  layer.innerHTML = '';
+  const colors = ['#FF5A1F','#4ADE80','#FFC94A','#7C5CFF','#38BDF8','#F472B6'];
+  for(let i=0;i<40;i++){
+    const piece = document.createElement('div');
+    const size = 6 + Math.random()*6;
+    piece.style.position = 'absolute';
+    piece.style.left = Math.random()*100 + '%';
+    piece.style.top = '-20px';
+    piece.style.width = size+'px';
+    piece.style.height = size+'px';
+    piece.style.background = colors[Math.floor(Math.random()*colors.length)];
+    piece.style.borderRadius = Math.random()>0.5 ? '50%' : '3px';
+    piece.style.opacity = '0.9';
+    piece.style.transform = `rotate(${Math.random()*360}deg)`;
+    piece.style.transition = `transform ${1.2+Math.random()*1}s ease-in, top ${1.2+Math.random()*1}s ease-in, opacity 0.3s ease ${1.2}s`;
+    layer.appendChild(piece);
+    requestAnimationFrame(()=>{
+      piece.style.top = (60+Math.random()*40) + '%';
+      piece.style.transform = `translateX(${(Math.random()-0.5)*120}px) rotate(${Math.random()*720}deg)`;
+      piece.style.opacity = '0';
+    });
+  }
+  setTimeout(()=>{ layer.innerHTML=''; }, 2500);
+}
+
+// ===================== WEEKLY AI MOTIVATION =====================
+async function loadAiMotivation(){
+  let local = null;
+  try{ const raw = localStorage.getItem('ironlog_ai_motivation'); if(raw) local = JSON.parse(raw); }catch(e){}
+  if(CLOUD_ENABLED){
+    try{
+      const {data, error} = await sb.from(TABLE).select('*').eq('id','ai-motivation').maybeSingle();
+      if(!error && data && data.exercises) return data.exercises;
+    }catch(e){ console.error(e); }
+  }
+  return local || {map:{}, savedAt:0};
+}
+async function saveAiMotivation(map){
+  const payload = {map, savedAt: Date.now()};
+  try{ localStorage.setItem('ironlog_ai_motivation', JSON.stringify(payload)); }catch(e){}
+  if(CLOUD_ENABLED){
+    try{ await sb.from(TABLE).upsert({id:'ai-motivation', date: todayStr(), exercises: payload, status:'config'}); }catch(e){ console.error(e); }
+  }
+}
+function addDaysStr(dateStr, n){
+  const d = new Date(dateStr); d.setDate(d.getDate()+n);
+  return d.toISOString().slice(0,10);
+}
+function buildPerformanceSummaryText(entries){
+  const weekKey = isoWeekKey(todayStr());
+  const thisWeek = entries.filter(e => isoWeekKey(e.date) === weekKey);
+  const source = thisWeek.length > 0 ? thisWeek : entries;
+  const byName = {};
+  source.forEach(e => { (byName[e.name] = byName[e.name] || []).push(e); });
+
+  let text = `IronLog Weekly Performance\nWeek of ${weekKey} to ${addDaysStr(weekKey,6)}\n\n`;
+  Object.keys(byName).sort().forEach(name => {
+    const list = byName[name].sort((a,b)=>a.date.localeCompare(b.date));
+    text += `${name}\n`;
+    list.forEach(e => {
+      const w = e.weight!=null ? `${e.weight}kg × ` : '';
+      text += `- ${e.date}: ${w}${e.reps.join('/')}\n`;
+    });
+    if(STRENGTH_STANDARDS[name]){
+      const latest = list[list.length-1];
+      const pct = estimatePercentile(latest.weight, STRENGTH_STANDARDS[name]);
+      text += `Current best: ${latest.weight}kg — estimated top ${100-pct}% in Malaysia\n`;
+    }
+    text += `\n`;
+  });
+  text += `Please write fresh, punchy, Malaysia-flavoured motivation blocks for each exercise above (in the "Top X% in Malaysia" / relatable-comparison / next-milestone style already used in the IronLog app). Format each one as:\n## Exercise Name\n<motivation text>\n\nso I can paste your reply straight back into the app.`;
+  return text;
+}
+async function copyPerformanceForAI(){
+  const entries = await buildDashboardEntries();
+  const text = buildPerformanceSummaryText(entries);
+  try{
+    await navigator.clipboard.writeText(text);
+    alert('Copied! Paste it into this IronLog project chat, then paste the reply back into the box below.');
+  }catch(e){
+    prompt('Copy this text (Cmd/Ctrl+C):', text);
+  }
+}
+function parseAiMotivation(text){
+  const blocks = ('\n'+text).split(/\n##\s+/).map(s=>s.trim()).filter(Boolean);
+  const map = {};
+  blocks.forEach(b => {
+    const lines = b.split('\n');
+    const name = lines[0].trim();
+    const body = lines.slice(1).join('\n').trim();
+    if(name && body) map[name] = body;
+  });
+  return map;
+}
+function renderAiMotivationDisplay(payload){
+  const el = document.getElementById('aiMotivationDisplay');
+  if(!el) return;
+  const map = payload.map || {};
+  const names = Object.keys(map);
+  if(names.length === 0){
+    el.innerHTML = '<div class="empty">No AI motivation saved yet.</div>';
+    return;
+  }
+  const savedLabel = payload.savedAt ? new Date(payload.savedAt).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '';
+  el.innerHTML = `<p class="fallback-toggle" style="margin-bottom:10px;">Last updated ${savedLabel}</p>` + names.map(n => `
+    <div style="padding:12px 0;border-bottom:1px solid var(--line);">
+      <div class="exname" style="font-size:14px;margin-bottom:6px;">${n}</div>
+      <div style="font-size:13px;color:var(--text-dim);line-height:1.5;white-space:pre-wrap;">${map[n]}</div>
+    </div>`).join('');
+}
+
 // ===================== EVENTS =====================
 function bindEvents(){
   document.getElementById('logSetBtn').onclick = logSet;
@@ -893,14 +1364,42 @@ function bindEvents(){
     render();
   };
   document.getElementById('staleDiscardBtn').onclick = async () => {
+    const old = window._staleSession;
     document.getElementById('staleBanner').classList.add('hidden');
+    if(old){
+      const exercises = old.exercises
+        .filter(e => e.setLog && e.setLog.length > 0)
+        .map(e => ({name:e.name, weight: e.weighted ? e.weight : null, reps: e.setLog.map(s=>s.reps), restActualSec: e.setLog.map(s=>s.restActualSec)}));
+      if(exercises.length > 0){
+        const archived = {date: old.date, exercises};
+        await insertCompletedSession(archived);
+        sessions.push(archived);
+      }
+      await clearActive(old.dayIndex);
+    }
     window._staleSession = null;
-    // the "active" slot already holds today's fresh session (started at init) — just drop the stale one from cache.
+    saveActive(state); // persist today's fresh plan now that we're committing to it
+    render();
   };
   document.getElementById('freeLogBtn').onclick = handleFreeLog;
   document.getElementById('freeInput').addEventListener('keydown', e=>{ if(e.key==='Enter') handleFreeLog(); });
 
   document.getElementById('exportBtn').onclick = exportData;
+  document.getElementById('copyPerfBtn').onclick = copyPerformanceForAI;
+  document.getElementById('saveAiMotivationBtn').onclick = async () => {
+    const input = document.getElementById('aiMotivationInput');
+    const map = parseAiMotivation(input.value);
+    if(Object.keys(map).length === 0){ alert('Could not find any "## Exercise Name" blocks in that text.'); return; }
+    await saveAiMotivation(map);
+    input.value = '';
+    const payload = await loadAiMotivation();
+    renderAiMotivationDisplay(payload);
+    alert(`Saved motivation for ${Object.keys(map).length} exercise(s)!`);
+  };
+  document.getElementById('addRewardBtn').onclick = addReward;
+  document.getElementById('newRewardInput').addEventListener('keydown', e=>{ if(e.key==='Enter') addReward(); });
+  document.getElementById('claimRewardBtn').onclick = claimReward;
+  document.getElementById('rewardModalCloseBtn').onclick = ()=>{ document.getElementById('rewardModalOverlay').classList.add('hidden'); };
   document.getElementById('dayOverride').addEventListener('change', e=>{
     switchToDay(e.target.value);
   });
@@ -915,10 +1414,12 @@ function bindEvents(){
       const tab = t.dataset.tab;
       document.getElementById('tab-workout').classList.toggle('hidden', tab!=='workout');
       document.getElementById('tab-dashboard').classList.toggle('hidden', tab!=='dashboard');
+      document.getElementById('tab-rewards').classList.toggle('hidden', tab!=='rewards');
       if(tab==='dashboard') renderDashboard();
+      if(tab==='rewards') renderRewardsTab();
     };
   });
-  document.getElementById('exSelect').addEventListener('change', e=>renderExerciseChart(e.target.value));
+  document.getElementById('exSelect').addEventListener('change', e=>renderExerciseChart(e.target.value, lastDashboardEntries));
 }
 
 init();
