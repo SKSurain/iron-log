@@ -116,7 +116,7 @@
 <div class="wrap">
   <div class="topbar">
     <div class="brand">IRON<span>LOG</span> <span class="cloud-badge off" id="cloudBadge">local</span></div>
-    <div class="date" id="todayLabel"></div>
+    <div class="date"><span id="versionTag" style="opacity:0.5;"></span> <span id="todayLabel"></span></div>
   </div>
 
   <div id="loadingMsg" class="empty" style="padding:40px 0;">Loading your plan…</div>
@@ -254,6 +254,7 @@
 // ===================== CONFIG =====================
 const SUPABASE_URL = 'https://iehpagvflcenkfrujyjy.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_6WZrZriQc-te1hGVlPOpjw_S0IQpDJD';
+const APP_VERSION = 'v1.5 · 2026-09-25';
 const CLOUD_ENABLED = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 10;
 const sb = CLOUD_ENABLED ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 const TABLE = 'iron_log_sessions';
@@ -322,39 +323,46 @@ async function insertCompletedSession(session){
   all.push(session);
   await window.storage.set('sessions', JSON.stringify(all), false);
 }
-async function loadActive(){
+async function loadActive(dayKey){
+  const cacheKey = 'ironlog_active_cache_' + dayKey;
+  const rowId = 'active-' + dayKey;
   let local = null;
-  try{ const raw = localStorage.getItem('ironlog_active_cache'); if(raw) local = JSON.parse(raw); }catch(e){}
+  try{ const raw = localStorage.getItem(cacheKey); if(raw) local = JSON.parse(raw); }catch(e){}
 
   if(CLOUD_ENABLED){
     let cloud = null;
     try{
-      const {data, error} = await sb.from(TABLE).select('*').eq('id','active').maybeSingle();
+      const {data, error} = await sb.from(TABLE).select('*').eq('id',rowId).maybeSingle();
       if(!error && data && data.exercises && data.exercises.__progress) cloud = data.exercises;
     }catch(e){ console.error(e); }
     if(cloud && local) return (cloud._savedAt||0) >= (local._savedAt||0) ? cloud : local;
     return cloud || local;
   }
   if(local) return local;
-  try{ const r = await window.storage.get('active-session', false); return r ? JSON.parse(r.value) : null; }catch(e){ return null; }
+  try{ const r = await window.storage.get('active-session-'+dayKey, false); return r ? JSON.parse(r.value) : null; }catch(e){ return null; }
 }
 async function saveActive(state){
-  // Write instantly to the device first — this can't be interrupted by closing the app,
-  // unlike the network call below.
+  // Each weekday gets its own slot (active-1 ... active-5, active-rest) so switching
+  // between days never overwrites another day's in-progress session.
+  const dayKey = state.dayIndex;
+  const cacheKey = 'ironlog_active_cache_' + dayKey;
+  const rowId = 'active-' + dayKey;
   state._savedAt = Date.now();
-  try{ localStorage.setItem('ironlog_active_cache', JSON.stringify(state)); }catch(e){}
+  try{ localStorage.setItem(cacheKey, JSON.stringify(state)); }catch(e){}
 
   if(CLOUD_ENABLED){
-    try{ await sb.from(TABLE).upsert({id:'active', date: state.date, exercises: state, status:'active'}); }
+    try{ await sb.from(TABLE).upsert({id:rowId, date: state.date, exercises: state, status:'active'}); }
     catch(e){ console.error('cloud save failed, local cache still has it', e); }
     return;
   }
-  await window.storage.set('active-session', JSON.stringify(state), false);
+  await window.storage.set('active-session-'+dayKey, JSON.stringify(state), false);
 }
-async function clearActive(){
-  try{ localStorage.removeItem('ironlog_active_cache'); }catch(e){}
-  if(CLOUD_ENABLED){ try{ await sb.from(TABLE).delete().eq('id','active'); }catch(e){} return; }
-  try{ await window.storage.delete('active-session', false); }catch(e){}
+async function clearActive(dayKey){
+  const cacheKey = 'ironlog_active_cache_' + dayKey;
+  const rowId = 'active-' + dayKey;
+  try{ localStorage.removeItem(cacheKey); }catch(e){}
+  if(CLOUD_ENABLED){ try{ await sb.from(TABLE).delete().eq('id',rowId); }catch(e){} return; }
+  try{ await window.storage.delete('active-session-'+dayKey, false); }catch(e){}
 }
 
 // ===================== STATE =====================
@@ -394,12 +402,10 @@ function isDeloadWeek(){
 // ===================== INIT =====================
 async function init(){
   document.getElementById('todayLabel').textContent = todayLabelFmt();
+  document.getElementById('versionTag').textContent = APP_VERSION;
   const badge = document.getElementById('cloudBadge');
   badge.textContent = CLOUD_ENABLED ? 'cloud synced' : 'local only';
   badge.className = 'cloud-badge ' + (CLOUD_ENABLED ? 'on' : 'off');
-
-  const [loadedSessions, saved] = await Promise.all([loadSessions(), loadActive()]);
-  sessions = loadedSessions;
 
   const sel = document.getElementById('dayOverride');
   sel.innerHTML = Object.keys(ROUTINE).map(k => `<option value="${k}">${ROUTINE[k].label} — ${ROUTINE[k].focus}</option>`).join('') + `<option value="rest">SAT/SUN — Recovery</option>`;
@@ -407,27 +413,40 @@ async function init(){
   const jsDay = new Date().getDay();
   const defaultDay = ROUTINE[jsDay] ? String(jsDay) : 'rest';
 
-  if(saved && saved.exercises && saved.date === todayStr()){
-    state = saved;
-    sel.value = String(state.dayIndex);
-  } else if(saved && saved.exercises){
-    // Unfinished session from a different date — don't silently override today's plan.
-    window._staleSession = saved;
-    sel.value = defaultDay;
-    startDay(defaultDay);
-    const dayLabel = ROUTINE[saved.dayIndex] ? ROUTINE[saved.dayIndex].label : saved.dayIndex;
-    document.getElementById('staleText').textContent = `Unfinished ${dayLabel} session from ${saved.date} — resume it or discard?`;
-    document.getElementById('staleBanner').classList.remove('hidden');
-  } else {
-    sel.value = defaultDay;
-    startDay(defaultDay);
-  }
+  const [loadedSessions, saved] = await Promise.all([loadSessions(), loadActive(defaultDay)]);
+  sessions = loadedSessions;
+  sel.value = defaultDay;
+  applyLoadedActive(saved, defaultDay);
 
   if(document.getElementById('deloadBanner')) document.getElementById('deloadBanner').classList.toggle('hidden', !isDeloadWeek());
 
   document.getElementById('loadingMsg').classList.add('hidden');
   render();
   bindEvents();
+}
+
+function applyLoadedActive(saved, dayKey){
+  if(saved && saved.exercises && saved.date === todayStr()){
+    state = saved;
+  } else if(saved && saved.exercises){
+    // Unfinished session from an older date on this same weekday slot — ask first, don't silently discard.
+    window._staleSession = saved;
+    startDay(dayKey);
+    const dayLabel = ROUTINE[saved.dayIndex] ? ROUTINE[saved.dayIndex].label : saved.dayIndex;
+    document.getElementById('staleText').textContent = `Unfinished ${dayLabel} session from ${saved.date} — resume it or discard?`;
+    document.getElementById('staleBanner').classList.remove('hidden');
+  } else {
+    startDay(dayKey);
+  }
+}
+
+// Used by the day-picker: load whatever's already saved for that day (if any) instead of
+// blindly wiping it, so switching between e.g. Thursday and Friday keeps both intact.
+async function switchToDay(dayKey){
+  document.getElementById('staleBanner').classList.add('hidden');
+  const saved = await loadActive(dayKey);
+  applyLoadedActive(saved, dayKey);
+  render();
 }
 
 function startDay(dayKey){
@@ -686,9 +705,8 @@ async function saveWorkout(){
   const session = {date: state.date, exercises};
   await insertCompletedSession(session);
   sessions.push(session);
-  await clearActive();
+  await clearActive(state.dayIndex);
   alert('Workout saved ✅');
-  document.getElementById('dayOverride').value = document.getElementById('dayOverride').value;
   startDay(document.getElementById('dayOverride').value);
   render();
 }
@@ -881,8 +899,7 @@ function bindEvents(){
 
   document.getElementById('exportBtn').onclick = exportData;
   document.getElementById('dayOverride').addEventListener('change', e=>{
-    startDay(e.target.value);
-    render();
+    switchToDay(e.target.value);
   });
 
   setupMic('micBtn','repsInput', null);
