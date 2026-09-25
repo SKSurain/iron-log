@@ -119,6 +119,8 @@
     <div class="date" id="todayLabel"></div>
   </div>
 
+  <div id="loadingMsg" class="empty" style="padding:40px 0;">Loading your plan…</div>
+
   <div class="tabs">
     <div class="tab active" data-tab="workout">Workout</div>
     <div class="tab" data-tab="dashboard">Dashboard</div>
@@ -132,6 +134,13 @@
     </div>
 
     <div id="deloadBanner" class="deload hidden">🔻 Deload week — go ~10-20% lighter across the board today.</div>
+    <div id="staleBanner" class="deload hidden" style="display:flex;flex-direction:column;gap:8px;">
+      <span id="staleText"></span>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-ghost" id="staleResumeBtn" style="flex:1;padding:10px 0;">Resume it</button>
+        <button class="btn-ghost" id="staleDiscardBtn" style="flex:1;padding:10px 0;">Discard it</button>
+      </div>
+    </div>
 
     <div id="recoveryCard" class="card hidden">
       <h3>RECOVERY DAY</h3>
@@ -314,22 +323,37 @@ async function insertCompletedSession(session){
   await window.storage.set('sessions', JSON.stringify(all), false);
 }
 async function loadActive(){
+  let local = null;
+  try{ const raw = localStorage.getItem('ironlog_active_cache'); if(raw) local = JSON.parse(raw); }catch(e){}
+
   if(CLOUD_ENABLED){
-    const {data, error} = await sb.from(TABLE).select('*').eq('id','active').maybeSingle();
-    if(error || !data) return null;
-    return data.exercises && data.exercises.__progress ? data.exercises : null;
+    let cloud = null;
+    try{
+      const {data, error} = await sb.from(TABLE).select('*').eq('id','active').maybeSingle();
+      if(!error && data && data.exercises && data.exercises.__progress) cloud = data.exercises;
+    }catch(e){ console.error(e); }
+    if(cloud && local) return (cloud._savedAt||0) >= (local._savedAt||0) ? cloud : local;
+    return cloud || local;
   }
+  if(local) return local;
   try{ const r = await window.storage.get('active-session', false); return r ? JSON.parse(r.value) : null; }catch(e){ return null; }
 }
 async function saveActive(state){
+  // Write instantly to the device first — this can't be interrupted by closing the app,
+  // unlike the network call below.
+  state._savedAt = Date.now();
+  try{ localStorage.setItem('ironlog_active_cache', JSON.stringify(state)); }catch(e){}
+
   if(CLOUD_ENABLED){
-    await sb.from(TABLE).upsert({id:'active', date: state.date, exercises: state, status:'active'});
+    try{ await sb.from(TABLE).upsert({id:'active', date: state.date, exercises: state, status:'active'}); }
+    catch(e){ console.error('cloud save failed, local cache still has it', e); }
     return;
   }
   await window.storage.set('active-session', JSON.stringify(state), false);
 }
 async function clearActive(){
-  if(CLOUD_ENABLED){ await sb.from(TABLE).delete().eq('id','active'); return; }
+  try{ localStorage.removeItem('ironlog_active_cache'); }catch(e){}
+  if(CLOUD_ENABLED){ try{ await sb.from(TABLE).delete().eq('id','active'); }catch(e){} return; }
   try{ await window.storage.delete('active-session', false); }catch(e){}
 }
 
@@ -374,7 +398,8 @@ async function init(){
   badge.textContent = CLOUD_ENABLED ? 'cloud synced' : 'local only';
   badge.className = 'cloud-badge ' + (CLOUD_ENABLED ? 'on' : 'off');
 
-  sessions = await loadSessions();
+  const [loadedSessions, saved] = await Promise.all([loadSessions(), loadActive()]);
+  sessions = loadedSessions;
 
   const sel = document.getElementById('dayOverride');
   sel.innerHTML = Object.keys(ROUTINE).map(k => `<option value="${k}">${ROUTINE[k].label} — ${ROUTINE[k].focus}</option>`).join('') + `<option value="rest">SAT/SUN — Recovery</option>`;
@@ -382,10 +407,17 @@ async function init(){
   const jsDay = new Date().getDay();
   const defaultDay = ROUTINE[jsDay] ? String(jsDay) : 'rest';
 
-  const saved = await loadActive();
-  if(saved && saved.exercises){
+  if(saved && saved.exercises && saved.date === todayStr()){
     state = saved;
     sel.value = String(state.dayIndex);
+  } else if(saved && saved.exercises){
+    // Unfinished session from a different date — don't silently override today's plan.
+    window._staleSession = saved;
+    sel.value = defaultDay;
+    startDay(defaultDay);
+    const dayLabel = ROUTINE[saved.dayIndex] ? ROUTINE[saved.dayIndex].label : saved.dayIndex;
+    document.getElementById('staleText').textContent = `Unfinished ${dayLabel} session from ${saved.date} — resume it or discard?`;
+    document.getElementById('staleBanner').classList.remove('hidden');
   } else {
     sel.value = defaultDay;
     startDay(defaultDay);
@@ -393,6 +425,7 @@ async function init(){
 
   if(document.getElementById('deloadBanner')) document.getElementById('deloadBanner').classList.toggle('hidden', !isDeloadWeek());
 
+  document.getElementById('loadingMsg').classList.add('hidden');
   render();
   bindEvents();
 }
@@ -525,7 +558,7 @@ async function logSet(){
   const ex = state.exercises[state.current];
   initExerciseRuntime(ex);
   const repsVal = parseFloat(document.getElementById('repsInput').value);
-  if(isNaN(repsVal) || repsVal <= 0){ return; }
+  if(isNaN(repsVal) || repsVal < 0){ return; }
   const weightVal = ex.weighted ? parseFloat(document.getElementById('weightInput').value) || null : null;
 
   const restActual = restStartedAt ? Math.round((Date.now() - restStartedAt - pausedAccum)/1000) : null;
@@ -577,47 +610,68 @@ function skipExercise(){
 }
 
 // ===================== REST TIMER =====================
+let pauseStartedAt = null;
+let restBuzzed = false;
+
 function openRest(ex){
   const card = document.getElementById('restCard');
   card.classList.remove('hidden');
   document.getElementById('restExName').textContent = ex.name;
   restTargetSec = ex.category === 'compound' ? 150 : (ex.category === 'calf' || ex.category === 'forearm' ? 60 : 90);
-  restRemaining = restTargetSec;
-  restRunning = true; restPaused = false; pausedAccum = 0;
+  restRunning = true; restPaused = false; pausedAccum = 0; pauseStartedAt = null; restBuzzed = false;
   restStartedAt = Date.now();
+  document.getElementById('pauseBtn').textContent = 'Pause';
   updateRing();
   clearInterval(restTimerId);
-  restTimerId = setInterval(()=>{
-    if(restPaused) return;
-    restRemaining--;
-    if(restRemaining <= 0){
-      restRemaining = 0;
-      document.getElementById('ringSub').textContent = 'GO';
-      if(navigator.vibrate) navigator.vibrate([200,100,200]);
-      clearInterval(restTimerId);
-    }
-    updateRing();
-  },1000);
+  restTimerId = setInterval(updateRing, 1000);
+}
+function elapsedRestSec(){
+  const now = restPaused ? pauseStartedAt : Date.now();
+  return Math.max(0, Math.round((now - restStartedAt - pausedAccum)/1000));
 }
 function updateRing(){
-  const m = Math.floor(Math.max(0,restRemaining)/60);
-  const s = Math.max(0,restRemaining)%60;
+  if(!restRunning) return;
+  restRemaining = Math.max(0, restTargetSec - elapsedRestSec());
+  const m = Math.floor(restRemaining/60);
+  const s = restRemaining%60;
   document.getElementById('ringTime').textContent = `${m}:${s.toString().padStart(2,'0')}`;
   const circumference = 471.2;
   const frac = Math.max(0, restRemaining/restTargetSec);
   document.getElementById('ringFg').style.strokeDashoffset = (circumference*(1-frac)).toFixed(1);
-  document.getElementById('ringSub').textContent = restRemaining > 0 ? 'resting' : 'ready';
+  if(restRemaining <= 0){
+    document.getElementById('ringSub').textContent = restPaused ? 'paused' : 'GO';
+    if(!restBuzzed && !restPaused){
+      restBuzzed = true;
+      if(navigator.vibrate) navigator.vibrate([200,100,200]);
+      clearInterval(restTimerId);
+    }
+  } else {
+    document.getElementById('ringSub').textContent = restPaused ? 'paused' : 'resting';
+  }
 }
 function togglePause(){
-  restPaused = !restPaused;
+  if(!restPaused){
+    restPaused = true;
+    pauseStartedAt = Date.now();
+  } else {
+    pausedAccum += (Date.now() - pauseStartedAt);
+    pauseStartedAt = null;
+    restPaused = false;
+    clearInterval(restTimerId);
+    restTimerId = setInterval(updateRing, 1000);
+  }
   document.getElementById('pauseBtn').textContent = restPaused ? 'Resume' : 'Pause';
-  if(restPaused){ this._pauseStart = Date.now(); }
+  updateRing();
 }
 function readyForNext(){
   clearInterval(restTimerId);
+  restRunning = false;
   document.getElementById('restCard').classList.add('hidden');
   document.getElementById('repsInput').focus();
 }
+document.addEventListener('visibilitychange', () => {
+  if(!document.hidden && restRunning) updateRing();
+});
 
 // ===================== FINISH & SAVE =====================
 async function saveWorkout(){
@@ -810,6 +864,18 @@ function bindEvents(){
   document.getElementById('pauseBtn').onclick = togglePause;
   document.getElementById('readyBtn').onclick = readyForNext;
   document.getElementById('logWalkBtn').onclick = logWalk;
+  document.getElementById('staleResumeBtn').onclick = () => {
+    state = window._staleSession;
+    document.getElementById('dayOverride').value = String(state.dayIndex);
+    document.getElementById('staleBanner').classList.add('hidden');
+    saveActive(state);
+    render();
+  };
+  document.getElementById('staleDiscardBtn').onclick = async () => {
+    document.getElementById('staleBanner').classList.add('hidden');
+    window._staleSession = null;
+    // the "active" slot already holds today's fresh session (started at init) — just drop the stale one from cache.
+  };
   document.getElementById('freeLogBtn').onclick = handleFreeLog;
   document.getElementById('freeInput').addEventListener('keydown', e=>{ if(e.key==='Enter') handleFreeLog(); });
 
