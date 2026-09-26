@@ -147,10 +147,10 @@
     </div>
 
     <div id="recoveryCard" class="card hidden">
-      <h3>RECOVERY DAY</h3>
-      <div class="dayhead">Rest + 30–60 min walk</div>
-      <p class="cue">No lifting scheduled. Get the walk in if you can.</p>
-      <button class="btn btn-block" id="logWalkBtn">Mark walk done</button>
+      <h3>REST DAY</h3>
+      <div class="dayhead">Monday — full rest</div>
+      <p class="cue">No lifting scheduled. Keep hitting your 10,000 steps for the day.</p>
+      <button class="btn btn-block" id="logWalkBtn">Mark today done</button>
     </div>
 
     <div id="achieveBox"></div>
@@ -158,6 +158,7 @@
     <div id="workoutCard" class="card hidden">
       <div class="dayhead" id="dayHeadTxt"></div>
       <div class="dayfocus" id="dayFocusTxt"></div>
+      <div id="dayNoteTxt" class="fallback-toggle hidden" style="color:var(--warn);margin-bottom:10px;"></div>
 
       <div id="queueList"></div>
     </div>
@@ -210,6 +211,7 @@
           <button class="btn" id="readyBtn">Start Next Set</button>
         </div>
       </div>
+      <div id="duringRestTxt" class="fallback-toggle hidden" style="text-align:center;margin-top:8px;"></div>
     </div>
 
     <div id="doneCard" class="card hidden">
@@ -313,53 +315,84 @@
 // ===================== CONFIG =====================
 const SUPABASE_URL = 'https://iehpagvflcenkfrujyjy.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_6WZrZriQc-te1hGVlPOpjw_S0IQpDJD';
-const APP_VERSION = 'v2.3 · 2026-09-26';
+const APP_VERSION = 'v3.1 · 2026-09-26';
 const CLOUD_ENABLED = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 10;
 const sb = CLOUD_ENABLED ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 const TABLE = 'iron_log_sessions';
 
-// ===================== ROUTINE =====================
+// ===================== ROUTINE — Phase 1 (28 Sep – 20 Dec 2026) =====================
 // type: 'reps' | 'hold' (seconds) | 'distance' (meters)
 // weighted: true -> shows weight field & suggests +increment kg when top of range hit on same weight
+// restSecOverride: exact rest from the plan (takes priority over the category default)
+// supersetWith: label only (paired lift) — logged as two separate queue entries; use the
+//   tap-any-exercise queue to alternate sets manually if you want a true superset feel.
+
+const FINISHER = [
+  {name:'Chin tucks', cue:'Tuck chin back, 3 sec hold each rep.', sets:1, repLow:10, repHigh:10, type:'reps', weighted:false, category:'core', restSecOverride:20},
+  {name:'Doorway chest stretch', cue:'Arm on frame, lean through gently.', sets:1, repLow:30, repHigh:30, type:'hold', weighted:false, category:'core', restSecOverride:15},
+  {name:'Hip flexor stretch', cue:'Kneeling lunge stretch, each side.', sets:2, repLow:30, repHigh:30, type:'hold', weighted:false, category:'core', restSecOverride:15}
+];
+const SPRINT_WARMUP = 'Warm-up first (8 min): easy jog 3 min, leg swings 10/leg, A-skips 2×20m, butt kicks 2×20m, build-ups 3×40m at 60/70/80%. Dead bugs 1×8/side + glute bridges 1×12 before that.';
+
+function getSprintPhase(dateStr){
+  let d = dateStr;
+  while(d > '2026-11-22'){ const dt = new Date(d); dt.setDate(dt.getDate()-28); d = dt.toISOString().slice(0,10); }
+  if(d <= '2026-10-11') return {reps:5, distance:40, intensity:'80%', restSec:105, deload:false};
+  if(d <= '2026-10-18') return {reps:6, distance:50, intensity:'85-90%', restSec:105, deload:false};
+  if(d <= '2026-10-25') return {reps:4, distance:40, intensity:'80%', restSec:105, deload:true};
+  if(d <= '2026-11-08') return {reps:6, distance:55, intensity:'90-95%', restSec:165, deload:false};
+  if(d <= '2026-11-15') return {reps:8, distance:60, intensity:'95%', restSec:165, deload:false};
+  return {reps:4, distance:40, intensity:'80%', restSec:105, deload:true};
+}
+function buildSprintExercise(){
+  const phase = getSprintPhase(todayStr());
+  return {
+    name:'Sprints', cue:`${phase.reps}×${phase.distance}m @ ${phase.intensity}${phase.deload?' — deload week':''}. Stop if any sprint feels slower than the last. ${SPRINT_WARMUP}`,
+    sets: phase.reps, repLow: phase.distance, repHigh: phase.distance, type:'distance', weighted:false, category:'sprint', restSecOverride: phase.restSec
+  };
+}
+
 const ROUTINE = {
-  1: { label:'MON', focus:'Pull + Forearms', exercises:[
-    {name:'Weighted pull-ups', cue:'Full hang, pull chin over bar, control the descent.', sets:4, repLow:5, repHigh:8, type:'reps', weighted:true, increment:2.5, category:'compound'},
-    {name:'Barbell bent-over row', cue:'Flat back, pull bar to your belly.', sets:4, repLow:8, repHigh:10, type:'reps', weighted:true, increment:2.5, category:'compound'},
-    {name:'Hanging knee raises', cue:'Lift knees to chest, no swinging.', sets:3, repLow:10, repHigh:15, type:'reps', weighted:false, category:'core'},
-    {name:'Rear delt raises', cue:'Slight bend, squeeze shoulder blades together.', sets:3, repLow:12, repHigh:15, type:'reps', weighted:true, increment:1, category:'isolation'},
-    {name:'Towel hangs', cue:'Grip towel over the bar, hang dead weight.', sets:3, repLow:20, repHigh:30, type:'hold', weighted:false, category:'forearm'},
-    {name:'KB / band wrist rotations', cue:'Slow, full rotation each direction.', sets:3, repLow:12, repHigh:15, type:'reps', weighted:false, category:'forearm'}
+  2: { label:'TUE', focus:'Optional Quad Day', dayNote:'Optional — only do this if you slept 6+ hours and today isn\'t hectic.', exercises:[
+    {name:'Goblet squat', cue:'16kg KB, elbows inside knees, chest tall.', sets:3, repLow:10, repHigh:12, type:'reps', weighted:true, increment:1, category:'compound', restSecOverride:90},
+    {name:'Archer squat', cue:'3 sec lowering. Progression: bodyweight → 3 sec tempo → 8kg KB → 16kg KB → weighted vest.', sets:3, repLow:8, repHigh:10, type:'reps', weighted:false, category:'compound', restSecOverride:90, supersetWith:'DB lateral raise'},
+    {name:'DB lateral raise', cue:'Lead with elbows, stop at shoulder height.', sets:3, repLow:12, repHigh:15, type:'reps', weighted:true, increment:1, category:'isolation', restSecOverride:90, supersetWith:'Archer squat'},
+    {name:'Single-leg calf raise', cue:'On a block, full stretch down.', sets:3, repLow:12, repHigh:15, type:'reps', weighted:false, category:'calf', restSecOverride:60}
   ]},
-  2: { label:'TUE', focus:'Legs (Quad) + Calves', exercises:[
-    {name:'Barbell back squat', cue:'Chest up, hips back, full depth.', sets:4, repLow:8, repHigh:10, type:'reps', weighted:true, increment:2.5, category:'compound'},
-    {name:'Bulgarian split squat', cue:'Back foot up, front knee tracks over toe.', sets:3, repLow:10, repHigh:12, type:'reps', weighted:true, increment:1, category:'compound'},
-    {name:'KB goblet squat', cue:'Elbows inside knees, chest tall.', sets:3, repLow:15, repHigh:15, type:'reps', weighted:true, increment:1, category:'compound'},
-    {name:'Single-leg calf raise', cue:'Full stretch down, pause at the top.', sets:4, repLow:12, repHigh:15, type:'reps', weighted:false, category:'calf'},
-    {name:'Seated calf raise', cue:'Slow up, 1 second hold at the top.', sets:3, repLow:20, repHigh:20, type:'reps', weighted:true, increment:1, category:'calf'}
+  3: { label:'WED', focus:'Pull + Delts + Forearms', duringRest:'During rest: band pull-aparts × 10', exercises:[
+    {name:'Weighted pull-ups', cue:'Full hang, pull chin over bar, control the descent.', sets:4, repLow:5, repHigh:8, type:'reps', weighted:true, increment:2.5, category:'compound', restSecOverride:150},
+    {name:'Barbell bent-over row', cue:'Flat back, pull bar to your belly.', sets:3, repLow:8, repHigh:10, type:'reps', weighted:true, increment:2.5, category:'compound', restSecOverride:120},
+    {name:'DB lateral raise', cue:'Lead with elbows, stop at shoulder height.', sets:4, repLow:12, repHigh:15, type:'reps', weighted:true, increment:1, category:'isolation', restSecOverride:75, supersetWith:'DB rear delt raise'},
+    {name:'DB rear delt raise', cue:'Slight bend, squeeze shoulder blades together.', sets:3, repLow:15, repHigh:20, type:'reps', weighted:true, increment:1, category:'isolation', restSecOverride:75, supersetWith:'DB lateral raise'},
+    {name:'Hammer curl', cue:'Neutral grip, elbows pinned to sides. (Forearm tri-set, 3 rounds — rotate all 3 before resting.)', sets:3, repLow:10, repHigh:12, type:'reps', weighted:true, increment:1, category:'forearm', restSecOverride:60},
+    {name:'Reverse wrist curl', cue:'Palms down, curl up slowly.', sets:3, repLow:15, repHigh:20, type:'reps', weighted:false, category:'forearm', restSecOverride:60},
+    {name:'Wrist curl', cue:'Palms up, curl up slowly.', sets:3, repLow:15, repHigh:20, type:'reps', weighted:false, category:'forearm', restSecOverride:60}
   ]},
-  3: { label:'WED', focus:'Push + Forearms', exercises:[
-    {name:'Weighted dips', cue:'Lean forward, elbows back, feel the chest stretch.', sets:4, repLow:6, repHigh:8, type:'reps', weighted:true, increment:2.5, category:'compound'},
-    {name:'Feet-elevated push-ups', cue:'Straight body line, chest to floor.', sets:4, repLow:10, repHigh:15, type:'reps', weighted:false, category:'compound'},
-    {name:'DB lateral raise', cue:'Lead with elbows, stop at shoulder height.', sets:4, repLow:12, repHigh:15, type:'reps', weighted:true, increment:1, category:'isolation'},
-    {name:'Band lateral raise', cue:'Same motion, keep it slow and controlled.', sets:2, repLow:15, repHigh:20, type:'reps', weighted:false, category:'isolation'},
-    {name:'Dead hang', cue:'Relax the shoulders, just hang.', sets:3, repLow:30, repHigh:45, type:'hold', weighted:false, category:'forearm'},
-    {name:'Reverse wrist curls', cue:'Palms down, curl up slowly.', sets:3, repLow:15, repHigh:20, type:'reps', weighted:false, category:'forearm'}
+  4: { label:'THU', focus:'Chest + Delts', duringRest:'During rest: wall angels × 8', exercises:[
+    {name:'Weighted dips', cue:'Lean forward, elbows back, feel the chest stretch.', sets:4, repLow:6, repHigh:8, type:'reps', weighted:true, increment:2.5, category:'compound', restSecOverride:150},
+    {name:'Feet-elevated push-ups', cue:'On handles, straight body line. At 4×15 easy, add a plate on your back.', sets:4, repLow:10, repHigh:15, type:'reps', weighted:true, increment:2, category:'compound', restSecOverride:90},
+    {name:'Lean-away DB lateral raise', cue:'Lean away from the working arm for full stretch.', sets:4, repLow:12, repHigh:15, type:'reps', weighted:true, increment:1, category:'isolation', restSecOverride:60},
+    {name:'KB farmer carry', cue:'Stand tall, avoid leaning.', sets:3, repLow:40, repHigh:40, type:'distance', weighted:true, increment:2, category:'core', restSecOverride:90}
   ]},
-  4: { label:'THU', focus:'Legs (Posterior) + Calves', exercises:[
-    {name:'Deadlift / RDL (alternates weekly)', cue:'DL: hips down, chest up, drive the floor away. RDL: soft knees, hinge back, feel hamstrings.', sets:4, repLow:6, repHigh:12, type:'reps', weighted:true, increment:2.5, category:'compound'},
-    {name:'KB swings', cue:'Hinge hips, snap forward, arms stay relaxed.', sets:4, repLow:15, repHigh:20, type:'reps', weighted:true, increment:1, category:'compound'},
-    {name:'Single-leg glute bridge', cue:'Squeeze glute at the top, control the way down.', sets:3, repLow:12, repHigh:12, type:'reps', weighted:false, category:'isolation'},
-    {name:'Single-leg calf raise', cue:'Full stretch down, pause at the top.', sets:4, repLow:12, repHigh:15, type:'reps', weighted:false, category:'calf'},
-    {name:'Skipping rope', cue:'Light bounce, relaxed shoulders.', sets:3, repLow:60, repHigh:60, type:'hold', weighted:false, category:'calf'}
+  5: { label:'FRI', focus:'Upper Bodyweight (school) + Evening Sprints', exercises:[
+    {name:'Chin-ups', cue:'At school. Full hang between reps.', sets:4, repLow:8, repHigh:10, type:'reps', weighted:false, category:'compound', restSecOverride:120},
+    {name:'Sink dips', cue:'Slow, 3 sec lowering.', sets:3, repLow:10, repHigh:12, type:'reps', weighted:false, category:'compound', restSecOverride:90},
+    {name:'Hanging knee raises', cue:'Controlled, no swinging.', sets:3, repLow:10, repHigh:15, type:'reps', weighted:false, category:'core', restSecOverride:60},
+    {name:'1-arm DB lateral raise', cue:'Single arm, control the negative.', sets:3, repLow:12, repHigh:15, type:'reps', weighted:true, increment:1, category:'isolation', restSecOverride:60},
+    {name:'Dead hang', cue:'Hang as long as possible, relax the shoulders.', sets:2, repLow:20, repHigh:60, type:'hold', weighted:false, category:'forearm', restSecOverride:60}
   ]},
-  5: { label:'FRI', focus:'Arms, Shoulders & Core', exercises:[
-    {name:'Close-grip chin-ups', cue:'Palms facing you, pull chin over the bar.', sets:3, repLow:8, repHigh:10, type:'reps', weighted:true, increment:2.5, category:'compound'},
-    {name:'Dips (slow, bodyweight)', cue:'3 seconds down, control every rep.', sets:3, repLow:10, repHigh:12, type:'reps', weighted:false, category:'compound'},
-    {name:'Hammer curls', cue:'Neutral grip, elbows pinned to your sides.', sets:4, repLow:10, repHigh:12, type:'reps', weighted:true, increment:1, category:'isolation'},
-    {name:'Lateral raise', cue:'Lead with elbows, stop at shoulder height.', sets:3, repLow:12, repHigh:15, type:'reps', weighted:true, increment:1, category:'isolation'},
-    {name:'Rear delt raise / band pull-apart', cue:'Squeeze shoulder blades together.', sets:3, repLow:15, repHigh:20, type:'reps', weighted:true, increment:1, category:'isolation'},
-    {name:'KB farmer carry', cue:'Stand tall, walk tall, avoid leaning.', sets:4, repLow:40, repHigh:40, type:'distance', weighted:true, increment:2, category:'core'},
-    {name:'Hanging knee raises / ab roller', cue:'Controlled the whole way, no swinging.', sets:3, repLow:8, repHigh:15, type:'reps', weighted:false, category:'core'}
+  6: { label:'SAT', focus:'Shoulders + Width', duringRest:'During rest: band pull-aparts × 10', exercises:[
+    {name:'Landmine press', cue:'Press up and slightly forward.', sets:4, repLow:8, repHigh:10, type:'reps', weighted:true, increment:2, category:'compound', restSecOverride:120},
+    {name:'Wide-grip pull-ups', cue:'Do your max reps minus 2, wide grip.', sets:3, repLow:6, repHigh:10, type:'reps', weighted:false, category:'compound', restSecOverride:120},
+    {name:'DB lateral raise', cue:'Lead with elbows, stop at shoulder height.', sets:5, repLow:12, repHigh:15, type:'reps', weighted:true, increment:1, category:'isolation', restSecOverride:75, supersetWith:'DB rear delt raise'},
+    {name:'DB rear delt raise', cue:'Slight bend, squeeze shoulder blades together.', sets:3, repLow:15, repHigh:20, type:'reps', weighted:true, increment:1, category:'isolation', restSecOverride:75, supersetWith:'DB lateral raise'}
+  ]},
+  0: { label:'SUN', focus:'Sprints + Legs', exercises:[
+    {name:'Archer squat', cue:'Progression: bodyweight → 3 sec tempo → 8kg KB → 16kg KB → weighted vest.', sets:3, repLow:8, repHigh:10, type:'reps', weighted:false, category:'compound', restSecOverride:90, supersetWith:'DB lateral raise'},
+    {name:'DB lateral raise', cue:'Lead with elbows, stop at shoulder height.', sets:3, repLow:12, repHigh:15, type:'reps', weighted:true, increment:1, category:'isolation', restSecOverride:90, supersetWith:'Archer squat'},
+    {name:'Barbell RDL', cue:'Soft knees, hinge back, feel hamstrings. Maxed at 78kg — buy 2×10kg plates.', sets:3, repLow:8, repHigh:10, type:'reps', weighted:true, increment:2.5, category:'compound', restSecOverride:120, supersetWith:'Single-leg calf raise'},
+    {name:'Single-leg calf raise', cue:'Full stretch down, pause at the top.', sets:3, repLow:12, repHigh:15, type:'reps', weighted:false, category:'calf', restSecOverride:120, supersetWith:'Barbell RDL'},
+    {name:'Nordic curl', cue:'Backup if unavailable: towel slider leg curl 2×8-10.', sets:2, repLow:5, repHigh:5, type:'reps', weighted:false, category:'compound', restSecOverride:120}
   ]}
 };
 const DAY_NAMES = {1:'Monday',2:'Tuesday',3:'Wednesday',4:'Thursday',5:'Friday',0:'Sunday',6:'Saturday'};
@@ -451,11 +484,15 @@ function suggestWeight(def){
 }
 
 function isDeloadWeek(){
-  if(sessions.length === 0) return false;
-  const first = sessions.reduce((min,s)=> s.date < min ? s.date : min, sessions[0].date);
-  const days = Math.floor((new Date(todayStr()) - new Date(first)) / 86400000);
-  const week = Math.floor(days/7) + 1;
-  return week % 4 === 0;
+  const d = todayStr();
+  const PHASE1_RANGES = [['2026-10-19','2026-10-25'], ['2026-11-16','2026-11-22'], ['2026-12-14','2026-12-20']];
+  const PHASE1_END = '2026-12-20';
+  if(d <= PHASE1_END) return PHASE1_RANGES.some(([s,e]) => d>=s && d<=e);
+  // Phase 1's explicit dates are exhausted — fall back to every 4th week after it ends,
+  // so deload keeps happening until a Phase 2 plan with its own real dates replaces this.
+  const daysSincePhase1End = Math.floor((new Date(d) - new Date(PHASE1_END)) / 86400000);
+  const weekNum = Math.floor(daysSincePhase1End / 7) + 1;
+  return weekNum % 4 === 0;
 }
 
 // ===================== INIT =====================
@@ -467,7 +504,7 @@ async function init(){
   badge.className = 'cloud-badge ' + (CLOUD_ENABLED ? 'on' : 'off');
 
   const sel = document.getElementById('dayOverride');
-  sel.innerHTML = Object.keys(ROUTINE).map(k => `<option value="${k}">${ROUTINE[k].label} — ${ROUTINE[k].focus}</option>`).join('') + `<option value="rest">SAT/SUN — Recovery</option>`;
+  sel.innerHTML = Object.keys(ROUTINE).map(k => `<option value="${k}">${ROUTINE[k].label} — ${ROUTINE[k].focus}${ROUTINE[k].dayNote?' (optional)':''}</option>`).join('') + `<option value="rest">MON — Rest</option>`;
 
   const jsDay = new Date().getDay();
   const defaultDay = ROUTINE[jsDay] ? String(jsDay) : 'rest';
@@ -489,12 +526,18 @@ function buildFreshState(dayKey){
     return {date: todayStr(), dayIndex:'rest', __progress:true, current:0, exercises:[]};
   }
   const routine = ROUTINE[dayKey];
+  let defs = [...routine.exercises];
+  if(dayKey === '5' || dayKey === '0'){
+    // Friday evening + Sunday both open with a date-driven sprint session
+    defs = dayKey === '5' ? [...defs, buildSprintExercise()] : [buildSprintExercise(), ...defs];
+  }
+  defs = [...defs, ...FINISHER];
   return {
     date: todayStr(),
     dayIndex: dayKey,
     __progress: true,
     current: 0,
-    exercises: routine.exercises.map(def => ({...def, weight: suggestWeight(def)}))
+    exercises: defs.map(def => ({...def, weight: suggestWeight(def)}))
   };
 }
 
@@ -546,6 +589,9 @@ function render(){
   document.getElementById('workoutCard').classList.remove('hidden');
   document.getElementById('dayHeadTxt').textContent = `${DAY_NAMES[state.dayIndex]}`;
   document.getElementById('dayFocusTxt').textContent = routine.focus;
+  const noteEl = document.getElementById('dayNoteTxt');
+  if(routine.dayNote){ noteEl.textContent = routine.dayNote; noteEl.classList.remove('hidden'); }
+  else { noteEl.classList.add('hidden'); }
 
   const q = document.getElementById('queueList');
   q.innerHTML = '';
@@ -555,7 +601,7 @@ function render(){
     div.className = 'queue-item' + (ex._complete ? ' done' : '') + (isCurrent ? ' current' : '');
     const unit = ex.type === 'hold' ? 'sec' : (ex.type === 'distance' ? 'm' : 'reps');
     div.innerHTML = `<div class="qi-dot">${ex._complete ? '✓' : (i+1)}</div>
-      <div><div class="qi-name">${ex.name}</div><div class="qi-sub">${ex.sets}×${ex.repLow===ex.repHigh?ex.repLow:ex.repLow+'-'+ex.repHigh} ${unit}${ex.weighted?' · '+(ex.weight!=null?ex.weight+'kg':'bodyweight'):''}${ex._skipped?' · skipped':''}</div></div>`;
+      <div><div class="qi-name">${ex.name}${ex.supersetWith?' <span style="color:var(--accent);font-size:10px;">SS</span>':''}</div><div class="qi-sub">${ex.sets}×${ex.repLow===ex.repHigh?ex.repLow:ex.repLow+'-'+ex.repHigh} ${unit}${ex.weighted?' · '+(ex.weight!=null?ex.weight+'kg':'bodyweight'):''}${ex._skipped?' · skipped':''}</div></div>`;
     if(!ex._complete){
       div.style.cursor = 'pointer';
       div.onclick = () => {
@@ -592,7 +638,7 @@ function renderExerciseCard(){
 
   document.getElementById('exName').textContent = ex.name;
   document.getElementById('exCat').textContent = ex.category;
-  document.getElementById('exCue').textContent = ex.cue;
+  document.getElementById('exCue').textContent = ex.cue + (ex.supersetWith ? ` [Superset with ${ex.supersetWith} — tap it in the list to alternate sets, rest after the pair.]` : '');
   document.getElementById('exTargetSets').textContent = ex.sets;
   document.getElementById('exTargetReps').textContent = ex.repLow===ex.repHigh ? ex.repLow : `${ex.repLow}-${ex.repHigh}`;
   document.getElementById('exTargetUnit').textContent = ex.type === 'hold' ? 'sec' : (ex.type === 'distance' ? 'meters' : 'reps');
@@ -699,10 +745,14 @@ function openRest(ex){
   const card = document.getElementById('restCard');
   card.classList.remove('hidden');
   document.getElementById('restExName').textContent = ex.name;
-  restTargetSec = ex.category === 'compound' ? 150 : (ex.category === 'calf' || ex.category === 'forearm' ? 60 : 90);
+  restTargetSec = ex.restSecOverride != null ? ex.restSecOverride : (ex.category === 'compound' ? 150 : (ex.category === 'calf' || ex.category === 'forearm' ? 60 : 90));
   restRunning = true; restPaused = false; pausedAccum = 0; pauseStartedAt = null; restBuzzed = false;
   restStartedAt = Date.now();
   document.getElementById('pauseBtn').textContent = 'Pause';
+  const dnote = document.getElementById('duringRestTxt');
+  const routine = state.dayIndex !== 'rest' ? ROUTINE[state.dayIndex] : null;
+  if(routine && routine.duringRest){ dnote.textContent = routine.duringRest; dnote.classList.remove('hidden'); }
+  else { dnote.classList.add('hidden'); }
   updateRing();
   clearInterval(restTimerId);
   restTimerId = setInterval(updateRing, 1000);
@@ -930,8 +980,7 @@ async function renderDashboard(){
 // of their logged-lift community (general population, not Malaysia-specific).
 const STRENGTH_STANDARDS = {
   'Weighted pull-ups': [{level:'Beginner',w:-13,p:5},{level:'Novice',w:8,p:20},{level:'Intermediate',w:34,p:50},{level:'Advanced',w:63,p:80},{level:'Elite',w:93,p:95}],
-  'Weighted dips':      [{level:'Beginner',w:-8, p:5},{level:'Novice',w:18,p:20},{level:'Intermediate',w:50,p:50},{level:'Advanced',w:86,p:80},{level:'Elite',w:125,p:95}],
-  'Barbell back squat': [{level:'Beginner',w:64, p:5},{level:'Novice',w:93,p:20},{level:'Intermediate',w:130,p:50},{level:'Advanced',w:173,p:80},{level:'Elite',w:219,p:95}]
+  'Weighted dips':      [{level:'Beginner',w:-8, p:5},{level:'Novice',w:18,p:20},{level:'Intermediate',w:50,p:50},{level:'Advanced',w:86,p:80},{level:'Elite',w:125,p:95}]
 };
 function estimatePercentile(weight, tiers){
   if(weight <= tiers[0].w) return Math.max(1, Math.round(tiers[0].p * Math.max(0, weight - (tiers[0].w-20)) / 20));
