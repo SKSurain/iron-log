@@ -136,6 +136,7 @@
       <span id="dayPickLabel">Today's plan</span>
       <select id="dayOverride"></select>
     </div>
+    <button class="btn-ghost btn-block" id="resetDayBtn" style="margin-bottom:14px;font-size:11px;padding:8px 0;">↻ Reset this day to the current plan</button>
 
     <div id="deloadBanner" class="deload hidden">🔻 Deload week — go ~10-20% lighter across the board today.</div>
 
@@ -308,7 +309,7 @@
 // ===================== CONFIG =====================
 const SUPABASE_URL = 'https://iehpagvflcenkfrujyjy.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_6WZrZriQc-te1hGVlPOpjw_S0IQpDJD';
-const APP_VERSION = 'v4.0 · 2026-10-01';
+const APP_VERSION = 'v4.1 · 2026-10-01';
 const CLOUD_ENABLED = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 10;
 const sb = CLOUD_ENABLED ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 const TABLE = 'iron_log_sessions';
@@ -445,6 +446,12 @@ async function loadActive(dayKey){
   try{ const r = await window.storage.get('active-session-'+dayKey, false); return r ? JSON.parse(r.value) : null; }catch(e){ return null; }
 }
 async function saveActive(state){
+  function setSyncStatus(ok){
+    const badge = document.getElementById('cloudBadge');
+    if(!badge) return;
+    if(ok){ badge.textContent = 'cloud synced'; badge.className = 'cloud-badge on'; }
+    else { badge.textContent = '⚠ sync error — saved locally only'; badge.className = 'cloud-badge off'; }
+  }
   // Each weekday gets its own slot (active-1 ... active-5, active-rest) so switching
   // between days never overwrites another day's in-progress session.
   const dayKey = state.dayIndex;
@@ -454,8 +461,11 @@ async function saveActive(state){
   try{ localStorage.setItem(cacheKey, JSON.stringify(state)); }catch(e){}
 
   if(CLOUD_ENABLED){
-    try{ await sb.from(TABLE).upsert({id:rowId, date: state.date, exercises: state, status:'active'}); }
-    catch(e){ console.error('cloud save failed, local cache still has it', e); }
+    try{
+      await sb.from(TABLE).upsert({id:rowId, date: state.date, exercises: state, status:'active'});
+      setSyncStatus(true);
+    }
+    catch(e){ console.error('cloud save failed, local cache still has it', e); setSyncStatus(false); }
     return;
   }
   await window.storage.set('active-session-'+dayKey, JSON.stringify(state), false);
@@ -1493,6 +1503,14 @@ function bindEvents(){
   document.getElementById('dayOverride').addEventListener('change', e=>{
     switchToDay(e.target.value);
   });
+  document.getElementById('resetDayBtn').onclick = () => {
+    const dayKey = document.getElementById('dayOverride').value;
+    const label = ROUTINE[dayKey] ? `${ROUTINE[dayKey].label} — ${ROUTINE[dayKey].focus}` : dayKey;
+    if(confirm(`Reset ${label}? This clears whatever's currently logged/checked for this day and reloads it fresh from the current plan. Your history and past sessions are not affected.`)){
+      startDay(dayKey);
+      render();
+    }
+  };
 
   setupMic('micBtn','repsInput', null);
   setupMic('micBtn2','freeInput', (val)=>{ if(parseLogLine(val)) handleFreeLog(); });
