@@ -57,6 +57,12 @@
   .queue-item.current .qi-dot{border-color:var(--accent);color:var(--accent);}
   .qi-name{font-family:var(--font-display);font-size:14px;letter-spacing:0.02em;}
   .qi-sub{font-family:var(--font-mono);font-size:10px;color:var(--text-dim);}
+  .queue-group{display:flex;align-items:center;gap:8px;padding:12px 0 6px;border-bottom:1px solid var(--line);cursor:pointer;}
+  .queue-group .qg-chevron{color:var(--accent);font-size:12px;width:12px;}
+  .queue-group .qg-name{font-family:var(--font-display);font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);flex:1;}
+  .queue-group .qg-count{font-family:var(--font-mono);font-size:10px;color:var(--text-dim);}
+  .queue-group.done .qg-name,.queue-group.done .qg-count{color:var(--good);}
+  .queue-item.child{margin-left:18px;padding-left:12px;border-left:2px solid var(--line);}
 
   /* active exercise card */
   .exhead{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;}
@@ -136,7 +142,6 @@
       <span id="dayPickLabel">Today's plan</span>
       <select id="dayOverride"></select>
     </div>
-    <button class="btn-ghost btn-block" id="resetDayBtn" style="margin-bottom:14px;font-size:11px;padding:8px 0;">↻ Reset this day to the current plan</button>
 
     <div id="deloadBanner" class="deload hidden">🔻 Deload week — go ~10-20% lighter across the board today.</div>
 
@@ -158,6 +163,7 @@
     </div>
 
     <div id="exerciseCard" class="card hidden">
+      <div id="exGroup" class="fallback-toggle hidden" style="text-align:left;margin:0 0 4px;color:var(--accent);text-transform:uppercase;letter-spacing:0.08em;"></div>
       <div class="exhead">
         <div class="exname-big" id="exName"></div>
         <div class="cat-pill" id="exCat"></div>
@@ -309,7 +315,7 @@
 // ===================== CONFIG =====================
 const SUPABASE_URL = 'https://iehpagvflcenkfrujyjy.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_6WZrZriQc-te1hGVlPOpjw_S0IQpDJD';
-const APP_VERSION = 'v4.1 · 2026-10-01';
+const APP_VERSION = 'v4.2 · 2026-10-05';
 const CLOUD_ENABLED = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 10;
 const sb = CLOUD_ENABLED ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 const TABLE = 'iron_log_sessions';
@@ -322,22 +328,27 @@ const TABLE = 'iron_log_sessions';
 //   tap-any-exercise queue to alternate sets manually if you want a true superset feel.
 
 const WARMUP = [
-  {name:'Arm circles', cue:'20 sec each direction.', sets:1, repLow:20, repHigh:20, type:'hold', weighted:false, category:'core', restSecOverride:15},
-  {name:'Band external rotation', cue:'Elbow pinned to side, rotate out slowly, each arm.', sets:1, repLow:15, repHigh:15, type:'reps', weighted:false, category:'core', restSecOverride:15},
-  {name:'Scap pull-ups', cue:'Hang, pull shoulder blades down without bending elbows.', sets:1, repLow:8, repHigh:8, type:'reps', weighted:false, category:'core', restSecOverride:15},
-  {name:'Light warm-up set', cue:'One easy set of today\'s first main lift before working weight.', sets:1, repLow:1, repHigh:1, type:'reps', weighted:false, category:'core', restSecOverride:15}
+  {name:'Arm circles', group:'Warm-up', cue:'20 sec each direction.', sets:1, repLow:20, repHigh:20, type:'hold', weighted:false, category:'core', restSecOverride:15},
+  {name:'Band external rotation', group:'Warm-up', cue:'Elbow pinned to side, rotate out slowly, each arm.', sets:1, repLow:15, repHigh:15, type:'reps', weighted:false, category:'core', restSecOverride:15},
+  {name:'Scap pull-ups', group:'Warm-up', cue:'Hang, pull shoulder blades down without bending elbows.', sets:1, repLow:8, repHigh:8, type:'reps', weighted:false, category:'core', restSecOverride:15},
+  {name:'Light warm-up set', group:'Warm-up', cue:'One easy set of today\'s first main lift before working weight.', sets:1, repLow:1, repHigh:1, type:'reps', weighted:false, category:'core', restSecOverride:15}
 ];
 const FINISHER = [
-  {name:'Chin tucks', cue:'Tuck chin back, 3 sec hold each rep.', sets:1, repLow:10, repHigh:10, type:'reps', weighted:false, category:'core', restSecOverride:20},
-  {name:'Doorway chest stretch', cue:'Arm on frame, lean through gently.', sets:1, repLow:30, repHigh:30, type:'hold', weighted:false, category:'core', restSecOverride:15},
-  {name:'Hip flexor stretch', cue:'Kneeling lunge stretch, each side.', sets:2, repLow:30, repHigh:30, type:'hold', weighted:false, category:'core', restSecOverride:15}
+  {name:'Chin tucks', group:'Posture finisher', cue:'Tuck chin back, 3 sec hold each rep.', sets:1, repLow:10, repHigh:10, type:'reps', weighted:false, category:'core', restSecOverride:20},
+  {name:'Doorway chest stretch', group:'Posture finisher', cue:'Arm on frame, lean through gently.', sets:1, repLow:30, repHigh:30, type:'hold', weighted:false, category:'core', restSecOverride:15},
+  {name:'Hip flexor stretch', group:'Posture finisher', cue:'Kneeling lunge stretch, each side.', sets:2, repLow:30, repHigh:30, type:'hold', weighted:false, category:'core', restSecOverride:15}
 ];
 const GRIPPER = [
-  {name:'Gripper full closes', cue:'Full hand closes, each hand.', sets:3, repLow:8, repHigh:12, type:'reps', weighted:false, category:'forearm', restSecOverride:30},
-  {name:'Gripper closed hold', cue:'Hold gripper fully closed, each hand.', sets:2, repLow:10, repHigh:20, type:'hold', weighted:false, category:'forearm', restSecOverride:30},
-  {name:'Gripper thumb + 2-finger squeeze', cue:'Squeeze using thumb + two fingers only, each hand.', sets:2, repLow:8, repHigh:10, type:'reps', weighted:false, category:'forearm', restSecOverride:30}
+  {name:'Gripper full closes', group:'Hand gripper', cue:'Full hand closes, each hand.', sets:3, repLow:8, repHigh:12, type:'reps', weighted:false, category:'forearm', restSecOverride:30},
+  {name:'Gripper closed hold', group:'Hand gripper', cue:'Hold gripper fully closed, each hand.', sets:2, repLow:10, repHigh:20, type:'hold', weighted:false, category:'forearm', restSecOverride:30},
+  {name:'Gripper thumb + 2-finger squeeze', group:'Hand gripper', cue:'Squeeze using thumb + two fingers only, each hand.', sets:2, repLow:8, repHigh:10, type:'reps', weighted:false, category:'forearm', restSecOverride:30}
 ];
-const RICE_BUCKET = {name:'Rice bucket', cue:'2-3 rounds, 30 sec each: fist open/close, wrist twists, wrist bends, finger spreads.', sets:3, repLow:30, repHigh:30, type:'hold', weighted:false, category:'forearm', restSecOverride:20};
+const RICE_BUCKET = [
+  {name:'Fist open/close', group:'Rice bucket', cue:'Hands in the rice: open wide, squeeze to a fist. 30 sec per round.', sets:3, repLow:30, repHigh:30, type:'hold', weighted:false, category:'forearm', restSecOverride:10},
+  {name:'Wrist twists', group:'Rice bucket', cue:'Hands in the rice: twist wrists both ways. 30 sec per round.', sets:3, repLow:30, repHigh:30, type:'hold', weighted:false, category:'forearm', restSecOverride:10},
+  {name:'Wrist bends', group:'Rice bucket', cue:'Hands in the rice: bend wrists up and down. 30 sec per round.', sets:3, repLow:30, repHigh:30, type:'hold', weighted:false, category:'forearm', restSecOverride:10},
+  {name:'Finger spreads', group:'Rice bucket', cue:'Hands in the rice: spread fingers wide against the rice. 30 sec per round.', sets:3, repLow:30, repHigh:30, type:'hold', weighted:false, category:'forearm', restSecOverride:10}
+];
 
 const SPRINT_WARMUP = 'Warm-up first (8 min): easy jog 3 min, leg swings 10/leg, A-skips 2×20m, butt kicks 2×20m, build-ups 3×40m at 60/70/80%. Rain = KB swings 8×15s instead.';
 
@@ -362,7 +373,7 @@ function buildSprintExercise(){
 const ROUTINE = {
   1: { label:'MON', focus:'Off — Grip & Mobility', exercises:[
     ...GRIPPER,
-    {...RICE_BUCKET}
+    ...RICE_BUCKET
   ]},
   2: { label:'TUE', focus:'Optional Quad Day', dayNote:'Optional — only do this if you slept 6+ hours and today isn\'t hectic.', exercises:[
     {name:'Archer squat', cue:'3 sec lowering. Progression: bodyweight → 3 sec tempo → 8kg KB → 16kg KB → weighted vest.', sets:3, repLow:8, repHigh:10, type:'reps', weighted:false, category:'compound', restSecOverride:90, supersetWith:'DB lateral raise'},
@@ -374,9 +385,9 @@ const ROUTINE = {
     {name:'Barbell bent-over row', cue:'Flat back, pull bar to your belly.', sets:3, repLow:8, repHigh:10, type:'reps', weighted:true, increment:2.5, category:'compound', restSecOverride:120},
     {name:'DB lateral raise', cue:'Lead with elbows, stop at shoulder height.', sets:4, repLow:12, repHigh:15, type:'reps', weighted:true, increment:1, category:'isolation', restSecOverride:75, supersetWith:'DB rear delt raise'},
     {name:'DB rear delt raise', cue:'Slight bend, squeeze shoulder blades together.', sets:3, repLow:15, repHigh:20, type:'reps', weighted:true, increment:1, category:'isolation', restSecOverride:75, supersetWith:'DB lateral raise'},
-    {name:'Hammer curl', cue:'Neutral grip, elbows pinned to sides. (Forearm tri-set, 3 rounds — rotate all 3 before resting.)', sets:3, repLow:10, repHigh:12, type:'reps', weighted:true, increment:1, category:'forearm', restSecOverride:60},
-    {name:'Reverse wrist curl', cue:'Palms down, curl up slowly.', sets:3, repLow:15, repHigh:20, type:'reps', weighted:false, category:'forearm', restSecOverride:60},
-    {name:'Wrist curl', cue:'Palms up, curl up slowly.', sets:3, repLow:15, repHigh:20, type:'reps', weighted:false, category:'forearm', restSecOverride:60}
+    {name:'Hammer curl', group:'Forearm tri-set', cue:'Neutral grip, elbows pinned to sides. (Forearm tri-set, 3 rounds — rotate all 3 before resting.)', sets:3, repLow:10, repHigh:12, type:'reps', weighted:true, increment:1, category:'forearm', restSecOverride:60},
+    {name:'Reverse wrist curl', group:'Forearm tri-set', cue:'Palms down, curl up slowly.', sets:3, repLow:15, repHigh:20, type:'reps', weighted:false, category:'forearm', restSecOverride:60},
+    {name:'Wrist curl', group:'Forearm tri-set', cue:'Palms up, curl up slowly.', sets:3, repLow:15, repHigh:20, type:'reps', weighted:false, category:'forearm', restSecOverride:60}
   ]},
   4: { label:'THU', focus:'Chest + Delts', exercises:[
     {name:'Feet-elevated push-ups', cue:'At school. Feet up, straight body line.', sets:3, repLow:12, repHigh:15, type:'reps', weighted:true, increment:2, category:'compound', restSecOverride:90},
@@ -418,14 +429,46 @@ async function loadSessions(){
   }
   try{ const r = await window.storage.get('sessions', false); return r ? JSON.parse(r.value) : []; }catch(e){ return []; }
 }
-async function insertCompletedSession(session){
+// Returns true only if the session was really saved. Pass a stable id so retries overwrite instead of duplicating.
+async function insertCompletedSession(session, stableId){
   if(CLOUD_ENABLED){
-    await sb.from(TABLE).insert({id: crypto.randomUUID(), date: session.date, exercises: session.exercises, status:'complete'});
-    return;
+    try{
+      const {error} = await sb.from(TABLE).upsert({id: stableId || crypto.randomUUID(), date: session.date, exercises: session.exercises, status:'complete'});
+      if(error){ console.error('archive failed', error); return false; }
+      return true;
+    }catch(e){ console.error('archive failed', e); return false; }
   }
-  const all = await loadSessions();
-  all.push(session);
-  await window.storage.set('sessions', JSON.stringify(all), false);
+  try{
+    const all = await loadSessions();
+    all.push(session);
+    await window.storage.set('sessions', JSON.stringify(all), false);
+    return true;
+  }catch(e){ return false; }
+}
+
+// Moves everything logged in an in-progress day slot into permanent history, one record per calendar
+// date it was actually logged on. Returns true only if every record saved — callers must NOT clear the
+// slot unless this returns true, so data can never vanish.
+async function archiveSlot(slot){
+  const byDate = {};
+  (slot.exercises || []).forEach(e => {
+    (e.setLog || []).forEach(s => {
+      const d = s.loggedAt || slot.date;
+      byDate[d] = byDate[d] || {};
+      const rec = byDate[d][e.name] = byDate[d][e.name] || {name:e.name, weight:null, reps:[], restActualSec:[]};
+      rec.reps.push(s.reps);
+      rec.restActualSec.push(s.restActualSec != null ? s.restActualSec : null);
+      if(s.weight != null) rec.weight = s.weight;
+    });
+  });
+  const stamp = slot._createdAt || slot.date;
+  const results = await Promise.all(Object.keys(byDate).map(async d => {
+    const session = {date: d, exercises: Object.values(byDate[d])};
+    const ok = await insertCompletedSession(session, `arch-${slot.dayIndex}-${stamp}-${d}`);
+    if(ok) sessions.push(session);
+    return ok;
+  }));
+  return results.every(Boolean);
 }
 async function loadActive(dayKey){
   const cacheKey = 'ironlog_active_cache_' + dayKey;
@@ -483,7 +526,8 @@ let sessions = [];
 let state = null; // {date, dayIndex, __progress:true, current:0, exercises:[{...routineDef, sets:[{reps,weight,restActualSec}], weight}]}
 let restTargetSec = 150, restRemaining = 150, restTimerId = null, restRunning = false, restPaused = false, restStartedAt = null, pausedAccum = 0;
 
-const todayStr = () => new Date().toISOString().slice(0,10);
+const fmtLocal = (d) => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+const todayStr = () => fmtLocal(new Date());
 const todayLabelFmt = () => new Date().toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
 
 function findLastEntry(name){
@@ -530,10 +574,26 @@ async function init(){
   const jsDay = new Date().getDay();
   const defaultDay = ROUTINE[jsDay] ? String(jsDay) : 'rest';
 
-  const [loadedSessions, saved] = await Promise.all([loadSessions(), loadActive(defaultDay)]);
+  // One parallel round-trip: history + every day slot.
+  const dayKeysAll = Object.keys(ROUTINE);
+  const [loadedSessions, ...slotArr] = await Promise.all([loadSessions(), ...dayKeysAll.map(k => loadActive(k))]);
   sessions = loadedSessions;
+
+  // Any day slot left over from a previous week gets filed into history (never deleted), then cleared.
+  // The slot is only cleared if the archive really saved.
+  const thisWeek = isoWeekKey(todayStr());
+  const slotMap = {};
+  for(let i = 0; i < dayKeysAll.length; i++){
+    const k = dayKeysAll[i];
+    let slot = slotArr[i];
+    if(slot && slot.exercises && isoWeekKey(slot.date) !== thisWeek){
+      if(await archiveSlot(slot)){ await clearActive(k); slot = null; }
+    }
+    slotMap[k] = slot;
+  }
+
   sel.value = defaultDay;
-  applyLoadedActive(saved, defaultDay);
+  await applyLoadedActive(slotMap[defaultDay] || null, defaultDay);
 
   if(document.getElementById('deloadBanner')) document.getElementById('deloadBanner').classList.toggle('hidden', !isDeloadWeek());
 
@@ -550,7 +610,7 @@ function buildFreshState(dayKey){
   let defs = [...routine.exercises];
   if(dayKey === '5' || dayKey === '0'){
     // Friday evening + Sunday both open with a date-driven sprint session
-    defs = dayKey === '5' ? [...defs, buildSprintExercise(), {...RICE_BUCKET}] : [buildSprintExercise(), ...defs];
+    defs = dayKey === '5' ? [...defs, buildSprintExercise(), ...RICE_BUCKET.map(r => ({...r}))] : [buildSprintExercise(), ...defs];
   }
   if(dayKey === '0'){
     const idx = defs.findIndex(d => d.name === 'Nordic curl');
@@ -564,16 +624,50 @@ function buildFreshState(dayKey){
     date: todayStr(),
     dayIndex: dayKey,
     __progress: true,
+    _createdAt: Date.now(),
     current: 0,
     exercises: defs.map(def => ({...def, weight: suggestWeight(def)}))
   };
 }
 
-function applyLoadedActive(saved, dayKey){
+// When the plan changes (new exercises, groups, sets), merge the new template into a day that's already
+// in progress. Everything you logged is kept; untouched exercises just pick up the new plan.
+function reconcileWithTemplate(saved, dayKey){
+  if(dayKey === 'rest') return saved;
+  const fresh = buildFreshState(dayKey);
+  const pool = {};
+  saved.exercises.forEach(e => { (pool[e.name] = pool[e.name] || []).push(e); });
+  const used = new Set();
+  const merged = fresh.exercises.map(f => {
+    const list = pool[f.name];
+    if(list && list.length){
+      const old = list.shift();
+      used.add(old);
+      const log = old.setLog || [];
+      return {...f, setLog: log, _loggedSets: log.length, _complete: log.length >= f.sets, weight: old.weight != null ? old.weight : f.weight};
+    }
+    return f;
+  });
+  // Anything you logged under a name that's no longer in the plan stays visible so nothing is lost.
+  saved.exercises.forEach(e => {
+    if(!used.has(e) && e.setLog && e.setLog.length){
+      merged.push({...e, _loggedSets: e.setLog.length, _complete: e.setLog.length >= e.sets});
+    }
+  });
+  const firstOpen = merged.findIndex(e => !e._complete);
+  return {...fresh, date: saved.date, _createdAt: saved._createdAt || fresh._createdAt, exercises: merged, current: firstOpen === -1 ? 0 : firstOpen};
+}
+
+async function applyLoadedActive(saved, dayKey){
   if(saved && saved.exercises){
-    // Always silently resume whatever's saved for this day slot, no matter how old.
-    // The only way to reset a day is to explicitly finish it (Save & Finish).
-    state = saved;
+    if(isoWeekKey(saved.date) !== isoWeekKey(todayStr())){
+      // Leftover from a previous week: file it into history first, then start this week fresh.
+      if(await archiveSlot(saved)){ await clearActive(dayKey); startDay(dayKey); }
+      else { state = saved; } // archive failed -> keep the data visible rather than risk losing it
+    } else {
+      state = reconcileWithTemplate(saved, dayKey);
+      saveActive(state);
+    }
   } else {
     startDay(dayKey);
   }
@@ -583,7 +677,7 @@ function applyLoadedActive(saved, dayKey){
 // blindly wiping it, so switching between e.g. Thursday and Friday keeps both intact.
 async function switchToDay(dayKey){
   const saved = await loadActive(dayKey);
-  applyLoadedActive(saved, dayKey);
+  await applyLoadedActive(saved, dayKey);
   render();
 }
 
@@ -616,10 +710,28 @@ function render(){
 
   const q = document.getElementById('queueList');
   q.innerHTML = '';
+  let lastGroup = null;
   state.exercises.forEach((ex, i) => {
+    // Parent row: shown once at the start of each group, with progress and a collapse toggle
+    if(ex.group && ex.group !== lastGroup){
+      const kids = state.exercises.filter(e => e.group === ex.group);
+      const doneKids = kids.filter(e => e._complete).length;
+      const collapsed = collapsedGroups.has(ex.group);
+      const head = document.createElement('div');
+      head.className = 'queue-group' + (doneKids === kids.length ? ' done' : '');
+      head.innerHTML = `<span class="qg-chevron">${collapsed ? '▸' : '▾'}</span><span class="qg-name">${ex.group}</span><span class="qg-count">${doneKids}/${kids.length}${doneKids === kids.length ? ' ✓' : ''}</span>`;
+      head.onclick = () => {
+        if(collapsedGroups.has(ex.group)) collapsedGroups.delete(ex.group); else collapsedGroups.add(ex.group);
+        render();
+      };
+      q.appendChild(head);
+    }
+    lastGroup = ex.group || null;
+    if(ex.group && collapsedGroups.has(ex.group)) return;
+
     const isCurrent = i === state.current && !allDone();
     const div = document.createElement('div');
-    div.className = 'queue-item' + (ex._complete ? ' done' : '') + (isCurrent ? ' current' : '');
+    div.className = 'queue-item' + (ex._complete ? ' done' : '') + (isCurrent ? ' current' : '') + (ex.group ? ' child' : '');
     const unit = ex.type === 'hold' ? 'sec' : (ex.type === 'distance' ? 'm' : 'reps');
     div.innerHTML = `<div class="qi-dot">${ex._complete ? '✓' : (i+1)}</div>
       <div><div class="qi-name">${ex.name}${ex.supersetWith?' <span style="color:var(--accent);font-size:10px;">SS</span>':''}</div><div class="qi-sub">${ex.sets}×${ex.repLow===ex.repHigh?ex.repLow:ex.repLow+'-'+ex.repHigh} ${unit}${ex.weighted?' · '+(ex.weight!=null?ex.weight+'kg':'bodyweight'):''}</div></div>`;
@@ -642,6 +754,7 @@ function render(){
   renderExerciseCard();
 }
 let forceShowCard = false;
+const collapsedGroups = new Set();
 
 function firstIncompleteIndex(){
   for(let i=0;i<state.exercises.length;i++){ if(!state.exercises[i]._complete) return i; }
@@ -659,6 +772,8 @@ function renderExerciseCard(){
   const card = document.getElementById('exerciseCard');
   card.classList.remove('hidden');
 
+  const grpEl = document.getElementById('exGroup');
+  if(ex.group){ grpEl.textContent = ex.group + ' ›'; grpEl.classList.remove('hidden'); } else { grpEl.classList.add('hidden'); }
   document.getElementById('exName').textContent = ex.name;
   document.getElementById('exCat').textContent = ex.category;
   document.getElementById('exCue').textContent = ex.cue + (ex.supersetWith ? ` [Superset with ${ex.supersetWith} — tap it in the list to alternate sets, rest after the pair.]` : '');
@@ -870,17 +985,10 @@ document.addEventListener('visibilitychange', () => {
 
 // ===================== FINISH & SAVE =====================
 async function saveWorkout(){
-  const exercises = state.exercises
-    .filter(e => e.setLog && e.setLog.length > 0)
-    .map(e => ({
-      name: e.name,
-      weight: e.weighted ? e.weight : null,
-      reps: e.setLog.map(s=>s.reps),
-      restActualSec: e.setLog.map(s=>s.restActualSec)
-    }));
-  const session = {date: state.date, exercises};
-  await insertCompletedSession(session);
-  sessions.push(session);
+  if(!(await archiveSlot(state))){
+    alert('Could not save to the cloud right now. Nothing was cleared — your sets are still here. Try again in a moment.');
+    return;
+  }
   await clearActive(state.dayIndex);
   alert('Workout saved ✅');
   startDay(document.getElementById('dayOverride').value);
@@ -956,10 +1064,12 @@ function setupMic(btnId, targetInputId, onDoneCallback){
 
 // ===================== DASHBOARD =====================
 function isoWeekKey(d){
-  const date = new Date(d);
+  // Monday-start week, computed on the local calendar (not UTC) so Malaysia early mornings land correctly
+  const date = typeof d === 'string' ? new Date(d + 'T00:00:00') : new Date(d);
+  date.setHours(0,0,0,0);
   const day = (date.getDay()+6)%7;
   date.setDate(date.getDate()-day);
-  return date.toISOString().slice(0,10);
+  return fmtLocal(date);
 }
 
 // Flattens completed sessions + every exercise currently sitting in any in-progress
@@ -999,12 +1109,12 @@ async function renderDashboard(){
   document.getElementById('statTotal').textContent = trainingDates.length;
   const now = new Date();
   const weekStart = new Date(now); weekStart.setDate(now.getDate() - ((now.getDay()+6)%7)); weekStart.setHours(0,0,0,0);
-  document.getElementById('statWeek').textContent = trainingDates.filter(d => new Date(d) >= weekStart).length;
+  document.getElementById('statWeek').textContent = trainingDates.filter(d => new Date(d + 'T00:00:00') >= weekStart).length;
 
   const dateSet = new Set(trainingDates);
   let streak = 0, cursor = new Date();
   while(true){
-    const key = cursor.toISOString().slice(0,10);
+    const key = fmtLocal(cursor);
     if(dateSet.has(key)){ streak++; cursor.setDate(cursor.getDate()-1); } else break;
   }
   document.getElementById('statStreak').textContent = streak;
@@ -1309,7 +1419,7 @@ function getWeeklyPrescribedSets(){
   });
   total += buildSprintExercise().sets; // Friday's sprint block
   total += buildSprintExercise().sets; // Sunday's sprint block
-  total += RICE_BUCKET.sets; // Friday evening rice bucket
+  total += RICE_BUCKET.reduce((n,r) => n + r.sets, 0); // Friday evening rice bucket
   return total;
 }
 
@@ -1408,8 +1518,8 @@ async function saveAiMotivation(map){
   }
 }
 function addDaysStr(dateStr, n){
-  const d = new Date(dateStr); d.setDate(d.getDate()+n);
-  return d.toISOString().slice(0,10);
+  const d = new Date(dateStr + 'T00:00:00'); d.setDate(d.getDate()+n);
+  return fmtLocal(d);
 }
 function buildPerformanceSummaryText(entries){
   const weekKey = isoWeekKey(todayStr());
@@ -1503,14 +1613,6 @@ function bindEvents(){
   document.getElementById('dayOverride').addEventListener('change', e=>{
     switchToDay(e.target.value);
   });
-  document.getElementById('resetDayBtn').onclick = () => {
-    const dayKey = document.getElementById('dayOverride').value;
-    const label = ROUTINE[dayKey] ? `${ROUTINE[dayKey].label} — ${ROUTINE[dayKey].focus}` : dayKey;
-    if(confirm(`Reset ${label}? This clears whatever's currently logged/checked for this day and reloads it fresh from the current plan. Your history and past sessions are not affected.`)){
-      startDay(dayKey);
-      render();
-    }
-  };
 
   setupMic('micBtn','repsInput', null);
   setupMic('micBtn2','freeInput', (val)=>{ if(parseLogLine(val)) handleFreeLog(); });
