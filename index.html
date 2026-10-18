@@ -325,6 +325,15 @@
     </div>
 
     <div class="card">
+      <h3>DATA CHECK</h3>
+      <p class="fallback-toggle" style="margin-bottom:10px;">Shows exactly what is saved in your cloud history and what this phone is using. Type an exercise name (or part of it) to see every saved session for it.</p>
+      <div style="display:flex;gap:8px;">
+        <input id="diagSearch" placeholder="e.g. pull-up, archer, zercher" style="flex:1;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:10px;color:var(--text);">
+        <button class="btn" id="diagBtn" style="padding:0 16px;">CHECK</button>
+      </div>
+      <pre id="diagOut" style="white-space:pre-wrap;font-family:var(--font-mono);font-size:11px;line-height:1.5;margin-top:10px;color:var(--text);"></pre>
+    </div>
+    <div class="card">
       <h3>BACKUP</h3>
       <p class="fallback-toggle" style="margin-bottom:10px;">Downloads every logged workout as one file. Works the same on phone or laptop — whatever browser you open this page in.</p>
       <button class="btn btn-block" id="exportBtn">Export All Data (.json)</button>
@@ -387,7 +396,7 @@
 // ===================== CONFIG =====================
 const SUPABASE_URL = 'https://iehpagvflcenkfrujyjy.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_6WZrZriQc-te1hGVlPOpjw_S0IQpDJD';
-const APP_VERSION = 'v4.8 · 2026-10-17';
+const APP_VERSION = 'v4.10 · 2026-10-18';
 const CLOUD_ENABLED = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 10;
 const sb = CLOUD_ENABLED ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 const TABLE = 'iron_log_sessions';
@@ -496,7 +505,8 @@ const DAY_NAMES = {1:'Monday',2:'Tuesday',3:'Wednesday',4:'Thursday',5:'Friday',
 async function loadSessions(){
   if(CLOUD_ENABLED){
     const {data, error} = await sb.from(TABLE).select('*').eq('status','complete').order('date',{ascending:true});
-    if(error){ console.error(error); return []; }
+    if(error){ console.error(error); lastLoadError = error.message || String(error); return []; }
+    lastLoadError = null;
     return data.map(r => ({date:r.date, exercises:r.exercises}));
   }
   try{ const r = await window.storage.get('sessions', false); return r ? JSON.parse(r.value) : []; }catch(e){ return []; }
@@ -1131,6 +1141,7 @@ document.addEventListener('visibilitychange', () => {
 //  5. Deload weeks never add weight, and deload sessions are never used to judge progress.
 // Always a suggestion. Nothing here forces a weight or a rep count.
 let liveSlots = {};
+let lastLoadError = null;
 let pendingVerdict = null;
 function isOverloadLift(def){
   return def.type !== 'hold' && def.category !== 'sprint' && (!def.group || def.group === 'Forearm tri-set');
@@ -1159,6 +1170,11 @@ const _sum = a => a.reduce((x, y) => x + y, 0);
 function _roundTo(x, step){ return +(Math.round(x / step) * step).toFixed(2); }
 
 function getOverloadPlan(def, dayKey){
+  const p = _planCore(def, dayKey), h = liftHistory(def.name, dayKey);
+  p.nHist = h.length; p.latestHist = h.length ? h[h.length - 1].date : null;
+  return p;
+}
+function _planCore(def, dayKey){
   const lo = def.repLow, hi = def.repHigh, S = def.sets, inc = def.increment || 2.5;
   const weighted = !!def.weighted, u = def.type === 'distance' ? 'm' : 'reps';
   const hist = liftHistory(def.name, dayKey);
@@ -1240,7 +1256,7 @@ function renderCoachBox(ex){
   box.classList.remove('hidden');
   box.innerHTML = `<div class="coach-top"><span class="chip ${pl.status}">${planLabel(pl, ex)}</span>${pl.aim ? `<span class="coach-aim">Aim: ${pl.aim.join(' / ')}</span>` : ''}</div>
     <div class="coach-txt">${esc(pl.text)}</div>
-    <div class="coach-foot">${pl.last ? 'Last: ' + esc(pl.last) + ' · ' : ''}Suggestion only, you decide. Log only clean-form reps. If form breaks, stop the set and log what was clean.</div>`;
+    <div class="coach-foot">${pl.nHist ? 'From ' + pl.nHist + ' past session' + (pl.nHist > 1 ? 's' : '') + ' (latest ' + fmtShort(pl.latestHist) + ') · ' : 'No past sessions found under this exact name · '}${pl.last ? 'Last: ' + esc(pl.last) + ' · ' : ''}Suggestion only, you decide. Log only clean-form reps. If form breaks, stop the set and log what was clean.</div>`;
 }
 
 function renderTargetsCard(){
@@ -1491,6 +1507,45 @@ function bindProg(card){
     renderProgress(lastDashboardEntries);
   };
   const sel = card.querySelector('#prLiftSel'); if(sel) sel.onchange = () => { progLift = sel.value; renderProgress(lastDashboardEntries); };
+}
+
+
+// ===================== DATA CHECK =====================
+async function runDataCheck(){
+  const out = document.getElementById('diagOut'), q = document.getElementById('diagSearch').value.trim().toLowerCase();
+  out.textContent = 'Checking…';
+  const L = [];
+  L.push('App version: ' + APP_VERSION);
+  L.push('Cloud: ' + (CLOUD_ENABLED ? 'on' : 'OFF (local only)'));
+  let rows = [];
+  if(CLOUD_ENABLED){
+    try{ rows = await loadHistRows(); L.push('History rows in cloud: ' + rows.length); }
+    catch(e){ L.push('⚠ Could not read cloud history: ' + (e.message || e)); }
+  }
+  L.push('History this phone is using: ' + sessions.length + ' session(s)' + (CLOUD_ENABLED && rows.length !== sessions.length ? '  ⚠ differs from cloud (' + rows.length + ')' : ''));
+  if(lastLoadError) L.push('⚠ Last history load error: ' + lastLoadError);
+  const dates = rows.map(r => r.date).sort();
+  if(dates.length) L.push('Cloud history dates: ' + dates[0] + ' to ' + dates[dates.length - 1]);
+  const names = {}; rows.forEach(r => r.exercises.forEach(e => { names[e.name] = (names[e.name] || 0) + 1; }));
+  L.push('Different exercises in history: ' + Object.keys(names).length);
+  L.push('Waiting to be filed (stuck on this phone): ' + getPending().length + ' slot(s)');
+  L.push('');
+  L.push('In-progress days (not yet history):');
+  Object.keys(ROUTINE).concat([]).forEach(k => {
+    const sl = liveSlots[k]; const n = sl && sl.exercises ? sl.exercises.reduce((m, e) => m + (e.setLog ? e.setLog.length : 0), 0) : 0;
+    L.push('  ' + DAY_NAMES[k] + ': ' + (sl ? 'slot dated ' + sl.date + ', ' + n + ' set(s) logged' : 'empty'));
+  });
+  if(q){
+    L.push(''); L.push('Saved sessions matching "' + q + '":');
+    const hits = [];
+    rows.forEach(r => r.exercises.forEach(e => { if(e.name.toLowerCase().includes(q)) hits.push(r.date + '  ' + e.name + '  ' + (e.weight != null ? e.weight + 'kg × ' : '') + e.reps.join('/')); }));
+    hits.sort(); L.push(hits.length ? hits.map(h => '  ' + h).join('\n') : '  none found');
+    const live = []; Object.keys(liveSlots).forEach(k => { const sl = liveSlots[k]; if(sl && sl.exercises) sl.exercises.forEach(e => { if(e.name.toLowerCase().includes(q) && e.setLog && e.setLog.length) live.push('  ' + DAY_NAMES[k] + ' (in progress)  ' + e.name + '  ' + e.setLog.map(x => x.reps).join('/')); }); });
+    if(live.length) L.push(live.join('\n'));
+  } else {
+    L.push(''); L.push('Last 8 saved days: ' + [...new Set(dates)].slice(-8).join(', '));
+  }
+  out.textContent = L.join('\n');
 }
 
 // ===================== EDIT PAST WORKOUTS =====================
@@ -2226,6 +2281,8 @@ function renderAiMotivationDisplay(payload){
 
 // ===================== EVENTS =====================
 function bindEvents(){
+  document.getElementById('diagBtn').onclick = runDataCheck;
+  document.getElementById('diagSearch').addEventListener('keydown', e => { if(e.key === 'Enter') runDataCheck(); });
   document.getElementById('histPrev').onclick = async () => { if(histDirty){ if(!confirm('Unsaved edits will be lost. Continue?')) return; await discardHistEdits(); } histWeek = addDaysStr(histWeek, -7); histDay = pickDefaultHistDay(); renderHistory(); };
   document.getElementById('histNext').onclick = async () => { if(histDirty){ if(!confirm('Unsaved edits will be lost. Continue?')) return; await discardHistEdits(); } histWeek = addDaysStr(histWeek, 7); histDay = pickDefaultHistDay(); renderHistory(); };
   document.getElementById('syncRetryBtn').addEventListener('click', async () => { await retryPending(); });
