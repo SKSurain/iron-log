@@ -91,6 +91,52 @@
   .btn:active{opacity:0.8;}
   .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--text);}
   .btn-block{width:100%;padding:14px 0;margin-top:10px;}
+  .wg-bar{height:14px;border-radius:7px;background:var(--surface-2);position:relative;overflow:hidden;margin-top:10px;}
+  .wg-fill{height:100%;border-radius:7px;background:var(--accent);transition:width .4s;}
+  .wg-mark{position:absolute;top:0;bottom:0;width:2px;background:var(--text-dim);opacity:.7;}
+  .wg-days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:14px;align-items:end;}
+  .wg-day{text-align:center;font-family:var(--font-mono);font-size:10px;color:var(--text-dim);}
+  .wg-col{height:84px;border-radius:8px;background:var(--surface-2);display:flex;align-items:flex-end;overflow:hidden;margin-bottom:4px;}
+  .wg-col>div{width:100%;background:var(--accent);}
+  .wg-col>div.full{background:var(--good);}
+  .wg-day.today .wg-col{outline:2px solid var(--accent);}
+  .wg-day.future{opacity:.45;}
+  .wg-up{color:var(--good);} .wg-down{color:#F87171;} .wg-same{color:var(--text-dim);}
+  .wg-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line);font-size:14px;}
+  .pr-pills{display:flex;gap:6px;margin-top:10px;}
+  .pr-pill{flex:1;text-align:center;padding:8px 0;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--text-dim);font-family:var(--font-mono);font-size:12px;}
+  .pr-pill.on{background:var(--accent);border-color:var(--accent);color:#161616;font-weight:700;}
+  .pr-tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px;}
+  .pr-tile{background:var(--surface-2);border-radius:10px;padding:10px 12px;}
+  .pr-tile .v{font-family:var(--font-display);font-size:24px;line-height:1.1;}
+  .pr-tile .l{font-size:11px;color:var(--text-dim);margin-top:2px;}
+  .pr-tile .d{font-size:11px;margin-top:3px;font-family:var(--font-mono);}
+  .pr-chart{position:relative;margin-top:8px;}
+  .pr-chart svg{width:100%;height:auto;display:block;touch-action:pan-y;}
+  .pr-tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:12px;line-height:1.35;white-space:nowrap;transform:translate(-50%,-100%);z-index:5;box-shadow:0 4px 14px rgba(0,0,0,.4);}
+  .pr-leg{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--text-dim);margin-top:6px;}
+  .pr-leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px;}
+  .coach{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0;}
+  .coach-top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+  .chip{font-family:var(--font-mono);font-size:11px;font-weight:700;padding:4px 9px;border-radius:999px;letter-spacing:.03em;}
+  .chip.up{background:rgba(74,222,128,.15);color:var(--good);}
+  .chip.hold{background:rgba(255,90,31,.14);color:var(--accent);}
+  .chip.down,.chip.plateau{background:rgba(255,201,74,.14);color:var(--warn);}
+  .chip.deload,.chip.new{background:rgba(255,255,255,.08);color:var(--text-dim);}
+  .coach-aim{font-family:var(--font-mono);font-size:13px;}
+  .coach-txt{font-size:13px;line-height:1.45;margin-top:8px;}
+  .coach-foot{font-size:11px;color:var(--text-dim);margin-top:8px;}
+  .hday{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:6px 0;text-align:center;font-family:var(--font-mono);font-size:10px;color:var(--text-dim);}
+  .hday b{display:block;font-size:13px;color:var(--text);}
+  .hday.has{border-color:var(--good);}
+  .hday.sel{background:var(--accent);border-color:var(--accent);color:#161616;}
+  .hday.sel b{color:#161616;}
+  .hex{border-top:1px solid var(--line);padding:12px 0;}
+  .hex-top{display:flex;align-items:center;gap:8px;}
+  .hex-name{flex:1;font-weight:700;font-size:15px;}
+  .hin{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px;color:var(--text);font-family:var(--font-mono);font-size:15px;text-align:center;width:64px;}
+  .hset{display:flex;align-items:center;gap:8px;margin-top:8px;font-family:var(--font-mono);font-size:12px;color:var(--text-dim);}
+  .hx{background:transparent;border:1px solid var(--line);color:var(--text-dim);border-radius:8px;padding:6px 10px;}
 
   /* rest timer */
   .timerbox{display:flex;flex-direction:column;align-items:center;padding:14px 0 6px;}
@@ -128,12 +174,18 @@
     <div class="date"><span id="versionTag" style="opacity:0.5;"></span> <span id="todayLabel"></span></div>
   </div>
 
+  <div id="syncWarn" class="hidden" style="background:rgba(255,201,74,0.12);color:var(--warn);border-radius:10px;padding:10px 12px;margin:8px 0;font-size:13px;line-height:1.4;">
+    ⚠ Last week's data is safe on this phone but not filed to the cloud yet.
+    <button id="syncRetryBtn" style="margin-left:6px;background:var(--warn);color:#000;border:0;border-radius:6px;padding:4px 10px;font-weight:700;">Retry</button>
+  </div>
+
   <div id="loadingMsg" class="empty" style="padding:40px 0;">Loading your plan…</div>
 
   <div class="tabs">
     <div class="tab active" data-tab="workout">Workout</div>
     <div class="tab" data-tab="dashboard">Dashboard</div>
     <div class="tab" data-tab="rewards">Rewards</div>
+    <div class="tab" data-tab="history">Edit</div>
   </div>
 
   <!-- WORKOUT TAB -->
@@ -175,6 +227,8 @@
         <div class="target-box"><div class="v" id="exTargetReps"></div><div class="l" id="exTargetUnit">reps</div></div>
         <div class="target-box"><div class="v" id="exSuggestWeight"></div><div class="l">suggested</div></div>
       </div>
+
+      <div id="coachBox" class="coach hidden"></div>
 
       <div id="loggedSetsList"></div>
       <div class="dots" id="setDots"></div>
@@ -232,6 +286,9 @@
 
   <!-- DASHBOARD TAB -->
   <div id="tab-dashboard" class="hidden">
+    <div class="card" id="weekGlance"></div>
+    <div class="card" id="progressCard"></div>
+    <div class="card" id="targetsCard"></div>
     <div class="card">
       <h3>OVERVIEW</h3>
       <div class="stat-row">
@@ -262,7 +319,7 @@
       <div id="recentLifts"></div>
     </div>
     <div class="card">
-      <h3>EXERCISE PROGRESS</h3>
+      <h3>EXERCISE HISTORY (ALL TIME)</h3>
       <select id="exSelect"></select>
       <div id="exChart"></div>
     </div>
@@ -272,6 +329,21 @@
       <p class="fallback-toggle" style="margin-bottom:10px;">Downloads every logged workout as one file. Works the same on phone or laptop — whatever browser you open this page in.</p>
       <button class="btn btn-block" id="exportBtn">Export All Data (.json)</button>
     </div>
+  </div>
+
+  <!-- HISTORY EDIT TAB -->
+  <div id="tab-history" class="hidden">
+    <div class="card">
+      <h3>EDIT PAST WORKOUTS</h3>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+        <button class="btn btn-ghost" id="histPrev" style="padding:10px 14px;">◀</button>
+        <div id="histWeekLabel" style="flex:1;text-align:center;font-family:var(--font-mono);font-size:13px;"></div>
+        <button class="btn btn-ghost" id="histNext" style="padding:10px 14px;">▶</button>
+      </div>
+      <div id="histDays" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:12px;"></div>
+    </div>
+    <div id="histPanel"></div>
+    <datalist id="histNames"></datalist>
   </div>
 
   <!-- REWARDS TAB -->
@@ -315,7 +387,7 @@
 // ===================== CONFIG =====================
 const SUPABASE_URL = 'https://iehpagvflcenkfrujyjy.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_6WZrZriQc-te1hGVlPOpjw_S0IQpDJD';
-const APP_VERSION = 'v4.2 · 2026-10-05';
+const APP_VERSION = 'v4.8 · 2026-10-17';
 const CLOUD_ENABLED = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 10;
 const sb = CLOUD_ENABLED ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 const TABLE = 'iron_log_sessions';
@@ -501,22 +573,45 @@ async function saveActive(state){
   const cacheKey = 'ironlog_active_cache_' + dayKey;
   const rowId = 'active-' + dayKey;
   state._savedAt = Date.now();
+  liveSlots[dayKey] = state;
   try{ localStorage.setItem(cacheKey, JSON.stringify(state)); }catch(e){}
 
   if(CLOUD_ENABLED){
     try{
-      await sb.from(TABLE).upsert({id:rowId, date: state.date, exercises: state, status:'active'});
-      setSyncStatus(true);
+      const {error} = await sb.from(TABLE).upsert({id:rowId, date: state.date, exercises: state, status:'active'});
+      if(error){ console.error('cloud save failed', error); setSyncStatus(false); }
+      else setSyncStatus(true);
     }
     catch(e){ console.error('cloud save failed, local cache still has it', e); setSyncStatus(false); }
     return;
   }
   await window.storage.set('active-session-'+dayKey, JSON.stringify(state), false);
 }
+// Old-week data that could not be filed into cloud history yet. Kept on this phone and retried
+// every time the app opens/resumes, so it can never be lost or shown as this week's data.
+const PENDING_KEY = 'ironlog_pending_archive';
+function getPending(){ try{ return JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); }catch(e){ return []; } }
+function setPending(list){ try{ if(list.length) localStorage.setItem(PENDING_KEY, JSON.stringify(list)); else localStorage.removeItem(PENDING_KEY); return true; }catch(e){ return false; } }
+function stashPending(slot){
+  const list = getPending();
+  const id = slot.dayIndex + '-' + (slot._createdAt || slot.date);
+  if(!list.some(p => p.dayIndex + '-' + (p._createdAt || p.date) === id)) list.push(slot);
+  return setPending(list);
+}
+function updateSyncWarn(){ const el = document.getElementById('syncWarn'); if(el) el.classList.toggle('hidden', getPending().length === 0); }
+async function retryPending(){
+  const keep = [];
+  for(const p of getPending()){ if(!(await archiveSlot(p))) keep.push(p); }
+  setPending(keep);
+  updateSyncWarn();
+  return keep.length === 0;
+}
+
 async function clearActive(dayKey){
   const cacheKey = 'ironlog_active_cache_' + dayKey;
   const rowId = 'active-' + dayKey;
   try{ localStorage.removeItem(cacheKey); }catch(e){}
+  delete liveSlots[dayKey];
   if(CLOUD_ENABLED){ try{ await sb.from(TABLE).delete().eq('id',rowId); }catch(e){} return; }
   try{ await window.storage.delete('active-session-'+dayKey, false); }catch(e){}
 }
@@ -548,8 +643,8 @@ function suggestWeight(def){
   return topOfRange ? +(last.weight + def.increment).toFixed(1) : last.weight;
 }
 
-function isDeloadWeek(){
-  const d = todayStr();
+function isDeloadWeek(){ return isDeloadDate(todayStr()); }
+function isDeloadDate(d){
   const PHASE1_RANGES = [['2026-10-19','2026-10-25'], ['2026-11-16','2026-11-22'], ['2026-12-14','2026-12-20']];
   const PHASE1_END = '2026-12-20';
   if(d <= PHASE1_END) return PHASE1_RANGES.some(([s,e]) => d>=s && d<=e);
@@ -574,33 +669,64 @@ async function init(){
   const jsDay = new Date().getDay();
   const defaultDay = ROUTINE[jsDay] ? String(jsDay) : 'rest';
 
-  // One parallel round-trip: history + every day slot.
-  const dayKeysAll = Object.keys(ROUTINE);
-  const [loadedSessions, ...slotArr] = await Promise.all([loadSessions(), ...dayKeysAll.map(k => loadActive(k))]);
-  sessions = loadedSessions;
-
-  // Any day slot left over from a previous week gets filed into history (never deleted), then cleared.
-  // The slot is only cleared if the archive really saved.
-  const thisWeek = isoWeekKey(todayStr());
-  const slotMap = {};
-  for(let i = 0; i < dayKeysAll.length; i++){
-    const k = dayKeysAll[i];
-    let slot = slotArr[i];
-    if(slot && slot.exercises && isoWeekKey(slot.date) !== thisWeek){
-      if(await archiveSlot(slot)){ await clearActive(k); slot = null; }
-    }
-    slotMap[k] = slot;
-  }
-
-  sel.value = defaultDay;
-  await applyLoadedActive(slotMap[defaultDay] || null, defaultDay);
-
-  if(document.getElementById('deloadBanner')) document.getElementById('deloadBanner').classList.toggle('hidden', !isDeloadWeek());
-
+  await loadToday();
   document.getElementById('loadingMsg').classList.add('hidden');
   render();
   bindEvents();
 }
+
+// Loads history + every day slot, files any slot from a previous week into history (never deletes
+// unless the archive really saved), then shows today's day. Used on start AND whenever the day changes.
+let lastSeenDay = null, rolloverBusy = false;
+async function loadToday(){
+  rolloverBusy = true;
+  try{
+    document.getElementById('todayLabel').textContent = todayLabelFmt();
+    const sel = document.getElementById('dayOverride');
+    const jsDay = new Date().getDay();
+    const defaultDay = ROUTINE[jsDay] ? String(jsDay) : 'rest';
+    lastSeenDay = todayStr();
+
+    await retryPending();
+    const dayKeysAll = Object.keys(ROUTINE);
+    const [loadedSessions, ...slotArr] = await Promise.all([loadSessions(), ...dayKeysAll.map(k => loadActive(k))]);
+    sessions = loadedSessions;
+
+    const thisWeek = isoWeekKey(todayStr());
+    const slotMap = {};
+    for(let i = 0; i < dayKeysAll.length; i++){
+      const k = dayKeysAll[i];
+      let slot = slotArr[i];
+      if(slot && slot.exercises && isoWeekKey(slot.date) !== thisWeek){
+        if(await archiveSlot(slot)){ await clearActive(k); slot = null; }
+        else if(stashPending(slot)){ await clearActive(k); slot = null; }
+      }
+      slotMap[k] = slot;
+    }
+    liveSlots = slotMap;
+    sel.value = defaultDay;
+    await applyLoadedActive(slotMap[defaultDay] || null, defaultDay);
+    updateSyncWarn();
+    const db = document.getElementById('deloadBanner');
+    if(db) db.classList.toggle('hidden', !isDeloadWeek());
+  } finally { rolloverBusy = false; }
+}
+
+// App resumed / came back to the foreground: if the calendar day changed while it was asleep, roll over.
+async function rolloverCheck(){
+  if(rolloverBusy || !state) return;
+  if(todayStr() !== lastSeenDay){
+    await loadToday();
+    render();
+  } else if(getPending().length){
+    await retryPending();
+  }
+}
+document.addEventListener('visibilitychange', () => { if(!document.hidden) rolloverCheck(); });
+window.addEventListener('pageshow', rolloverCheck);
+window.addEventListener('focus', rolloverCheck);
+setInterval(rolloverCheck, 60000);
+
 
 function buildFreshState(dayKey){
   if(dayKey === 'rest'){
@@ -626,7 +752,7 @@ function buildFreshState(dayKey){
     __progress: true,
     _createdAt: Date.now(),
     current: 0,
-    exercises: defs.map(def => ({...def, weight: suggestWeight(def)}))
+    exercises: defs.map(def => { const plan = isOverloadLift(def) ? getOverloadPlan(def, dayKey) : null; return {...def, weight: plan ? plan.weight : null, plan}; })
   };
 }
 
@@ -644,7 +770,7 @@ function reconcileWithTemplate(saved, dayKey){
       const old = list.shift();
       used.add(old);
       const log = old.setLog || [];
-      return {...f, setLog: log, _loggedSets: log.length, _complete: log.length >= f.sets, weight: old.weight != null ? old.weight : f.weight};
+      return {...f, setLog: log, _loggedSets: log.length, _complete: log.length >= f.sets, weight: (log.length && old.weight != null) ? old.weight : f.weight};
     }
     return f;
   });
@@ -662,8 +788,9 @@ async function applyLoadedActive(saved, dayKey){
   if(saved && saved.exercises){
     if(isoWeekKey(saved.date) !== isoWeekKey(todayStr())){
       // Leftover from a previous week: file it into history first, then start this week fresh.
-      if(await archiveSlot(saved)){ await clearActive(dayKey); startDay(dayKey); }
-      else { state = saved; } // archive failed -> keep the data visible rather than risk losing it
+      if(await archiveSlot(saved) || stashPending(saved)){ await clearActive(dayKey); startDay(dayKey); }
+      else { state = saved; } // could neither file nor stash it -> keep it visible rather than lose it
+      updateSyncWarn();
     } else {
       state = reconcileWithTemplate(saved, dayKey);
       saveActive(state);
@@ -693,7 +820,7 @@ function render(){
   document.getElementById('exerciseCard').classList.add('hidden');
   document.getElementById('restCard').classList.add('hidden');
   document.getElementById('doneCard').classList.add('hidden');
-  document.getElementById('achieveBox').innerHTML = '';
+  { const v = pendingVerdict; pendingVerdict = null; document.getElementById('achieveBox').innerHTML = v ? `<div class="achieve">${esc(v)}</div>` : ''; }
 
   if(state.dayIndex === 'rest'){
     document.getElementById('recoveryCard').classList.remove('hidden');
@@ -782,6 +909,7 @@ function renderExerciseCard(){
   document.getElementById('exTargetUnit').textContent = ex.type === 'hold' ? 'sec' : (ex.type === 'distance' ? 'meters' : 'reps');
   document.getElementById('exSuggestWeight').textContent = ex.weighted ? (ex.weight!=null ? ex.weight+'kg' : '—') : 'body';
 
+  renderCoachBox(ex);
   renderLoggedSets(ex);
   renderDots(ex);
 
@@ -790,7 +918,7 @@ function renderExerciseCard(){
   document.getElementById('weightInput').value = ex.weight != null ? ex.weight : '';
 
   document.getElementById('repsInput').value = '';
-  document.getElementById('repsUnitHint').textContent = ex.type === 'hold' ? 'Enter seconds held' : (ex.type === 'distance' ? 'Enter meters covered' : 'Enter reps completed');
+  document.getElementById('repsUnitHint').textContent = ex.type === 'hold' ? 'Enter seconds held' : (ex.type === 'distance' ? 'Enter meters covered' : 'Enter clean reps only (stop when form breaks)');
 }
 
 let editingSetIndex = null;
@@ -899,16 +1027,24 @@ async function logSet(){
 
 function completeExercise(ex){
   ex._complete = true;
-  const topOfRange = ex.setLog.every(s => s.reps >= ex.repHigh);
-  const box = document.getElementById('achieveBox');
+  const reps = ex.setLog.map(x => x.reps);
+  const topOfRange = reps.length >= ex.sets && reps.every(r => r >= ex.repHigh);
+  const hist = liftHistory(ex.name, state.dayIndex).filter(h => !isDeloadDate(h.date));
+  const prev = hist.length ? hist[hist.length - 1] : null;
+  const avg = _sum(reps) / (reps.length || 1);
+  let msg;
   if(topOfRange){
-    const msg = ex.weighted
-      ? `🏆 ${ex.name} — every set at the top of range! Next time: +${ex.increment}kg`
-      : `🏆 ${ex.name} — every set at the top of range! Next time: add reps`;
-    box.innerHTML = `<div class="achieve">${msg}</div>`;
+    msg = ex.weighted
+      ? `🏆 ${ex.name}: every set at the top of the range with clean form! Next time: +${ex.increment || 2.5}kg`
+      : `🏆 ${ex.name}: every set at the top of the range! Next time: make it harder (slower, more load or a harder variation)`;
+  } else if(isOverloadLift(ex) && (reps[0] < ex.repLow || reps.filter(r => r < ex.repLow).length > reps.length / 2)){
+    msg = `⚠️ ${ex.name}: under ${ex.repLow} clean reps. That is fine, good form first. Same weight next time. Two in a row and I will suggest going lighter.`;
+  } else if(prev && _sum(reps) > _sum(prev.reps)){
+    msg = `📈 ${ex.name}: +${_sum(reps) - _sum(prev.reps)} clean reps vs last time. That is progress.`;
   } else {
-    box.innerHTML = `<div class="achieve">✅ ${ex.name} done. Logged.</div>`;
+    msg = `✅ ${ex.name} done. Logged.`;
   }
+  pendingVerdict = msg;
   state.current = firstIncompleteIndex();
   saveActive(state);
   document.getElementById('restCard').classList.add('hidden');
@@ -982,6 +1118,507 @@ function readyForNext(){
 document.addEventListener('visibilitychange', () => {
   if(!document.hidden && restRunning) updateRing();
 });
+
+
+
+
+// ===================== PROGRESSIVE OVERLOAD ENGINE =====================
+// Double progression on CLEAN reps only (you log only the reps with good form, so the log is the truth):
+//  1. Every set at the top of the rep range (all prescribed sets) -> add weight, restart at the bottom of the range.
+//  2. Inside the range but not all at the top -> same weight, beat last time by ONE clean rep.
+//  3. Two sessions in a row under the minimum reps (set 1 or the average) -> weight is too heavy for good form: step down.
+//  4. Three sessions, same weight, no extra reps -> plateau: short drop, rebuild, push again.
+//  5. Deload weeks never add weight, and deload sessions are never used to judge progress.
+// Always a suggestion. Nothing here forces a weight or a rep count.
+let liveSlots = {};
+let pendingVerdict = null;
+function isOverloadLift(def){
+  return def.type !== 'hold' && def.category !== 'sprint' && (!def.group || def.group === 'Forearm tri-set');
+}
+function liftHistory(name, excludeDayKey){
+  const lname = name.toLowerCase(), out = [];
+  sessions.forEach(s => (s.exercises || []).forEach(e => {
+    if(e.name.toLowerCase() === lname && e.reps && e.reps.length) out.push({date: s.date, weight: e.weight != null ? e.weight : null, reps: e.reps.map(Number)});
+  }));
+  Object.keys(liveSlots || {}).forEach(k => {
+    const slot = liveSlots[k];
+    if(!slot || !slot.exercises || String(k) === String(excludeDayKey)) return;
+    slot.exercises.forEach(ex => {
+      if(ex.name.toLowerCase() !== lname || !ex.setLog || !ex.setLog.length) return;
+      const byDate = {};
+      ex.setLog.forEach(st => { const d = st.loggedAt || slot.date; (byDate[d] = byDate[d] || []).push(st); });
+      Object.keys(byDate).forEach(d => {
+        const sets = byDate[d], w = sets.map(x => x.weight).filter(x => x != null).pop();
+        out.push({date: d, weight: w != null ? w : null, reps: sets.map(x => Number(x.reps))});
+      });
+    });
+  });
+  return out.sort((a, b) => a.date.localeCompare(b.date));
+}
+const _sum = a => a.reduce((x, y) => x + y, 0);
+function _roundTo(x, step){ return +(Math.round(x / step) * step).toFixed(2); }
+
+function getOverloadPlan(def, dayKey){
+  const lo = def.repLow, hi = def.repHigh, S = def.sets, inc = def.increment || 2.5;
+  const weighted = !!def.weighted, u = def.type === 'distance' ? 'm' : 'reps';
+  const hist = liftHistory(def.name, dayKey);
+  const norm = hist.filter(h => !isDeloadDate(h.date));
+  const base = norm.length ? norm : hist;
+  const last = base[base.length - 1];
+  const fmt = a => a.join('/');
+  if(!last){
+    return {status:'new', weight:null, aim:null, last:null,
+      text: weighted ? `First time. Pick a weight you can lift for ${lo} clean ${u} on every set, with 2 reps left in the tank. Log only reps with good form.` : `First time. Do clean ${u} only. Stop the set when your form breaks.`};
+  }
+  // 'too heavy' = can't hit the minimum on set 1, or more than half the sets are under it
+  const bad = e => e.reps.length && (e.reps[0] < lo || e.reps.filter(r => r < lo).length > e.reps.length / 2);
+  // same lift can have different set counts on different days -> judge against the smallest prescribed count
+  let Smin = S; Object.values(ROUTINE).forEach(r => r.exercises.forEach(x => { if(x.name === def.name) Smin = Math.min(Smin, x.sets); }));
+  const allTop = last.reps.length >= Smin && last.reps.every(r => r >= hi);
+  const lastTxt = (last.weight != null ? last.weight + 'kg × ' : '') + fmt(last.reps);
+  const w0 = last.weight;
+
+  if(isDeloadWeek()){
+    return {status:'deload', weight: weighted ? w0 : null, aim:null, last:lastTxt,
+      text:`Deload week. Same weight as last time, about half the sets, easy clean reps. Recovery is when the gains lock in.`};
+  }
+  if(allTop){
+    if(!weighted){
+      const hints = {'Sink dips':'slow the lowering to 4 seconds', 'Archer squat':'move up the progression ladder in the cue (tempo, then KB)', 'Chin-ups':'add a 2.5kg weight', 'Wide-grip pull-ups':'add a 2.5kg weight', 'Feet-elevated push-ups':'add a plate on your back', 'Ring push-ups':'raise your feet or slow the lowering', 'Ring rows':'raise your feet', 'Single-leg calf raise':'hold a dumbbell', 'Hanging knee raises':'straighten the legs toward toes-to-bar', 'Nordic curl':'add reps until you hit 8, then slow the lowering'};
+      const h = hints[def.name] || 'make it harder: slower lowering, a harder variation or a little extra load';
+      return {status:'up', weight:null, aim:null, last:lastTxt, text:`Every set hit ${hi} clean last time (${fmt(last.reps)}). Time to level up: ${h}. Then restart around ${lo} reps.`};
+    }
+    const nw = +((w0 != null ? w0 : 0) + inc).toFixed(1);
+    const jump = w0 ? (nw - w0) / w0 : 0;
+    return {status:'up', weight:nw, aim:Array(S).fill(lo), last:lastTxt,
+      text:`Every set hit ${hi} clean last time (${fmt(last.reps)} at ${w0 != null ? w0 + 'kg' : 'bodyweight'}). Add ${inc}kg and aim for ${lo}+ clean ${u} each set.` + (jump > 0.1 ? ` That is a big jump (${Math.round(jump * 100)}%). If form slips, stay at ${w0 != null ? w0 : 'the same'}kg and add reps first.` : '')};
+  }
+  // two bad sessions in a row -> too heavy
+  if(norm.length >= 2 && bad(norm[norm.length - 1]) && bad(norm[norm.length - 2])){
+    if(weighted && w0 != null && w0 > 0){
+      const nw = Math.max(0, +(w0 - inc).toFixed(1));
+      return {status:'down', weight:nw, aim:Array(S).fill(lo), last:lastTxt,
+        text:`Two sessions in a row under ${lo} clean ${u}. ${w0}kg is too heavy for good form right now. Drop to ${nw}kg, rebuild with clean reps, then climb again. This is how you stay injury-free.`};
+    }
+    return {status:'down', weight:null, aim:Array(S).fill(lo), last:lastTxt,
+      text:`Two sessions in a row under ${lo} clean ${u}. Use an easier variation or fewer sets for one session, rebuild form, then push again.`};
+  }
+  // plateau: 3 sessions, same weight, no extra reps
+  if(norm.length >= 3){
+    const t = norm.slice(-3);
+    const sameW = t.every(x => x.weight === t[0].weight);
+    if(sameW && _sum(t[2].reps) <= _sum(t[0].reps) && _sum(t[1].reps) <= _sum(t[0].reps)){
+      if(weighted && w0 != null && w0 > 0){
+        let nw = _roundTo(w0 * 0.9, Math.min(inc, 1));
+        if(nw >= w0) nw = +(w0 - inc).toFixed(1);
+        return {status:'plateau', weight:nw, aim:Array(S).fill(hi), last:lastTxt,
+          text:`3 sessions at ${w0}kg with no extra clean reps. Drop to ${nw}kg for one session, hit ${hi} perfect reps, then push back up. Also check sleep and food.`};
+      }
+      return {status:'plateau', weight:null, aim:null, last:lastTxt,
+        text:`3 sessions with no extra clean reps. Take one easy session (fewer reps, perfect form), check sleep and food, then push again.`};
+    }
+  }
+  // hold and beat last time by one clean rep
+  const padded = last.reps.slice(); while(padded.length < S) padded.push(lo);
+  const aim = padded.slice(0, Math.max(S, last.reps.length));
+  let li = -1, lv = 1e9; aim.forEach((r, i) => { if(r < hi && r < lv){ lv = r; li = i; } });
+  if(li >= 0) aim[li] += 1;
+  const w = weighted ? w0 : null;
+  const notEnoughSets = last.reps.length < Smin;
+  let text;
+  if(bad(last)) text = `Last time you were under ${lo} clean ${u}. Same weight again. Aim for at least ${lo} clean ${u} on every set. If it happens again I will suggest a lighter weight.`;
+  else if(notEnoughSets) text = `You did ${last.reps.length} of ${Smin} sets last time. Same weight, finish all ${Smin} sets with clean reps before adding weight.`;
+  else text = `Same weight. Beat last time by one clean rep: ${fmt(last.reps)} → ${fmt(aim)}. When every set reaches ${hi}, add ${weighted ? inc + 'kg' : 'load or a harder variation'}.`;
+  return {status:'hold', weight:w, aim, last:lastTxt, text};
+}
+const PLAN_LABEL = {up:'⬆ ADD WEIGHT', hold:'➡ BEAT LAST TIME', down:'⬇ GO LIGHTER', plateau:'🧱 PLATEAU', deload:'🔻 DELOAD', new:'🆕 FIRST TIME'};
+function planLabel(pl, def){ return pl.status === 'up' && pl.weight == null ? '⬆ LEVEL UP' : PLAN_LABEL[pl.status]; }
+function renderCoachBox(ex){
+  const box = document.getElementById('coachBox'); if(!box) return;
+  const pl = ex.plan || (isOverloadLift(ex) ? getOverloadPlan(ex, state.dayIndex) : null);
+  if(!pl){ box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  box.innerHTML = `<div class="coach-top"><span class="chip ${pl.status}">${planLabel(pl, ex)}</span>${pl.aim ? `<span class="coach-aim">Aim: ${pl.aim.join(' / ')}</span>` : ''}</div>
+    <div class="coach-txt">${esc(pl.text)}</div>
+    <div class="coach-foot">${pl.last ? 'Last: ' + esc(pl.last) + ' · ' : ''}Suggestion only, you decide. Log only clean-form reps. If form breaks, stop the set and log what was clean.</div>`;
+}
+
+function renderTargetsCard(){
+  const el = document.getElementById('targetsCard'); if(!el) return;
+  const seen = new Set(), rows = [];
+  Object.keys(ROUTINE).forEach(k => ROUTINE[k].exercises.forEach(def => {
+    if(!isOverloadLift(def) || seen.has(def.name)) return; seen.add(def.name);
+    const pl = getOverloadPlan(def, null);
+    rows.push({def, pl});
+  }));
+  const rank = {up:0, down:1, plateau:1, hold:2, deload:3, new:3};
+  rows.sort((a, b) => rank[a.pl.status] - rank[b.pl.status]);
+  const ready = rows.filter(r => r.pl.status === 'up').length, watch = rows.filter(r => r.pl.status === 'down' || r.pl.status === 'plateau').length;
+  el.innerHTML = `<h3>NEXT SESSION TARGETS</h3>
+    <div style="font-size:12px;color:var(--text-dim);margin-top:4px;">${ready} ready to go heavier${watch ? ' · ' + watch + ' need attention' : ''}. Based on your clean logged reps.</div>
+    ${rows.map(({def, pl}) => `<div class="wg-row"><div style="flex:1;"><div style="font-weight:700;">${esc(def.name)}</div><div style="font-size:12px;color:var(--text-dim);font-family:var(--font-mono);">${pl.weight != null ? pl.weight + 'kg' : (def.weighted ? '—' : 'bodyweight')}${pl.aim ? ' · ' + pl.aim.join('/') : ''}</div></div><span class="chip ${pl.status}">${planLabel(pl, def)}</span></div>`).join('')}`;
+}
+
+// ===================== WEEK AT A GLANCE =====================
+function daySetTarget(k){
+  // prescribed sets for one day of the plan (warm-up + exercises + finisher + sprints/rice bucket where they apply)
+  if(!ROUTINE[k]) return 0;
+  let t = ROUTINE[k].exercises.reduce((n, e) => n + e.sets, 0);
+  t += WARMUP.reduce((n, w) => n + w.sets, 0) + FINISHER.reduce((n, f) => n + f.sets, 0);
+  if(k === '5') t += buildSprintExercise().sets + RICE_BUCKET.reduce((n, r) => n + r.sets, 0);
+  if(k === '0') t += buildSprintExercise().sets;
+  return t;
+}
+function renderWeekGlance(entries){
+  const el = document.getElementById('weekGlance'); if(!el) return;
+  const today = todayStr(), wk = isoWeekKey(today), lastWk = isoWeekKey(addDaysStr(wk, -7));
+  const required = ['3','4','5','6','0'];
+  const target = getWeeklyPrescribedSets();
+  const setsOn = (d) => entries.filter(e => e.date === d).reduce((n, e) => n + e.reps.length, 0);
+  let done = 0, lastDone = 0;
+  for(let i = 0; i < 7; i++){ done += setsOn(addDaysStr(wk, i)); lastDone += setsOn(addDaysStr(lastWk, i)); }
+  const pct = target ? Math.round(done / target * 100) : 0;
+  const need75 = Math.max(0, Math.ceil(target * 0.75) - done), need95 = Math.max(0, Math.ceil(target * 0.95) - done);
+  const status = pct >= 95 ? '🔥 2 rewards zone. Keep it up!' : pct >= 75 ? `✅ 1 reward unlocked. ${need95} more sets for the 2nd.` : `${need75} more sets to unlock your first reward.`;
+  const diff = done - lastDone;
+  const vs = lastDone ? `<span class="${diff > 0 ? 'wg-up' : diff < 0 ? 'wg-down' : 'wg-same'}">${diff > 0 ? '▲ +' : diff < 0 ? '▼ ' : '= '}${diff} sets</span> vs the full last week (${lastDone})` : 'No data from last week yet';
+
+  let days = '';
+  for(let i = 0; i < 7; i++){
+    const d = addDaysStr(wk, i), jd = new Date(d + 'T00:00:00').getDay(), n = setsOn(d);
+    const t = required.includes(String(jd)) ? daySetTarget(String(jd)) : 0;
+    const h = t ? Math.min(100, Math.round(n / t * 100)) : (n ? 100 : 0);
+    const lab = new Date(d + 'T00:00:00').toLocaleDateString('en-GB',{weekday:'short'});
+    days += `<div class="wg-day ${d === today ? 'today' : ''} ${d > today ? 'future' : ''}"><div class="wg-col"><div class="${h >= 100 ? 'full' : ''}" style="height:${h}%"></div></div>${lab}<br>${t ? n + '/' + t : (n ? n : (jd === 1 || jd === 2 ? 'opt.' : '–'))}</div>`;
+  }
+
+  // lifts that moved vs the last time you did them before this week
+  const skip = new Set([...WARMUP, ...FINISHER].map(x => x.name.toLowerCase()));
+  const byName = {};
+  entries.forEach(e => { if(!skip.has(e.name.toLowerCase())) (byName[e.name] = byName[e.name] || []).push(e); });
+  const rows = [];
+  Object.keys(byName).forEach(name => {
+    const list = byName[name].sort((a, b) => a.date.localeCompare(b.date));
+    const cur = list.filter(e => isoWeekKey(e.date) === wk).pop();
+    const prev = list.filter(e => isoWeekKey(e.date) < wk).pop();
+    if(!cur) return;
+    const sum = a => a.reduce((x, y) => x + y, 0);
+    let txt, cls;
+    if(!prev){ txt = 'New'; cls = 'wg-up'; }
+    else if(cur.weight != null && prev.weight != null && cur.weight !== prev.weight){
+      const dw = +(cur.weight - prev.weight).toFixed(1); txt = (dw > 0 ? '▲ +' : '▼ ') + dw + 'kg'; cls = dw > 0 ? 'wg-up' : 'wg-down';
+    } else {
+      const dr = sum(cur.reps) - sum(prev.reps); txt = dr > 0 ? '▲ +' + dr + ' reps' : dr < 0 ? '▼ ' + dr + ' reps' : '= same'; cls = dr > 0 ? 'wg-up' : dr < 0 ? 'wg-down' : 'wg-same';
+    }
+    const now = (cur.weight != null ? cur.weight + 'kg × ' : '') + cur.reps.join('/');
+    rows.push({name, now, txt, cls, rank: cls === 'wg-up' ? 0 : cls === 'wg-same' ? 1 : 2});
+  });
+  rows.sort((a, b) => a.rank - b.rank);
+  const ups = rows.filter(r => r.cls === 'wg-up').length;
+
+  el.innerHTML = `<h3>THIS WEEK AT A GLANCE</h3>
+    <div style="display:flex;align-items:baseline;gap:10px;margin-top:8px;"><div style="font-family:var(--font-display);font-size:34px;">${pct}%</div><div style="color:var(--text-dim);font-size:13px;">${done} / ${target} sets</div></div>
+    <div class="wg-bar"><div class="wg-fill" style="width:${Math.min(100, pct)}%"></div><div class="wg-mark" style="left:75%"></div><div class="wg-mark" style="left:95%"></div></div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);font-family:var(--font-mono);margin-top:3px;"><span>0</span><span style="margin-left:auto;margin-right:18%;">75% = 1 reward</span><span>95% = 2</span></div>
+    <div style="margin-top:8px;font-size:14px;">${status}</div>
+    <div style="margin-top:4px;font-size:12px;color:var(--text-dim);">${vs}</div>
+    <div class="wg-days">${days}</div>
+    <h3 style="margin-top:18px;">LIFTS VS LAST TIME${rows.length ? ' · ' + ups + ' up' : ''}</h3>
+    ${rows.length ? rows.map(r => `<div class="wg-row"><div style="flex:1;"><div style="font-weight:700;">${esc(r.name)}</div><div style="font-size:12px;color:var(--text-dim);font-family:var(--font-mono);">${esc(r.now)}</div></div><div class="${r.cls}" style="font-family:var(--font-mono);font-size:13px;">${r.txt}</div></div>`).join('') : '<div class="empty" style="padding:12px 0;">Log a lift this week and your progress shows up here.</div>'}`;
+}
+
+
+// ===================== LONG-TERM PROGRESS =====================
+let progRange = '3M', progLift = null;
+try{ progRange = localStorage.getItem('ironlog_prog_range') || '3M'; }catch(e){}
+const PROG_DAYS = {'1M':30, '3M':91, '6M':182, '1Y':365, 'All':null};
+const MUTED_BAR = '#3B3F48';
+
+function niceStep(raw){ const p = Math.pow(10, Math.floor(Math.log10(raw || 1))); const f = raw / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p; }
+function fmtShort(d){ return new Date(d + 'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}); }
+
+function liftSeries(entries, name, fromWeek){
+  // one value per week: heaviest weight that week (or best single-set reps for bodyweight lifts)
+  const list = entries.filter(e => e.name === name && isoWeekKey(e.date) >= fromWeek);
+  const useWeight = list.some(e => e.weight != null);
+  const byWeek = {};
+  list.forEach(e => {
+    const v = useWeight ? e.weight : Math.max(0, ...e.reps);
+    if(v == null) return;
+    const wk = isoWeekKey(e.date);
+    if(byWeek[wk] == null || v > byWeek[wk].v) byWeek[wk] = {v, date: e.date};
+  });
+  return {unit: useWeight ? 'kg' : 'reps', pts: Object.keys(byWeek).sort().map(wk => ({wk, v: byWeek[wk].v, date: byWeek[wk].date}))};
+}
+
+function renderProgress(entries){
+  const card = document.getElementById('progressCard'); if(!card) return;
+  const today = todayStr(), curWk = isoWeekKey(today);
+  const pills = Object.keys(PROG_DAYS).map(k => `<div class="pr-pill ${k === progRange ? 'on' : ''}" data-range="${k}">${k}</div>`).join('');
+  if(!entries.length){ card.innerHTML = `<h3>PROGRESS OVER TIME</h3><div class="pr-pills">${pills}</div><div class="empty" style="padding:16px 0;">Log a few workouts and your long-term progress shows up here.</div>`; return bindProg(card); }
+
+  const earliest = entries.reduce((m, e) => e.date < m ? e.date : m, today);
+  const days = PROG_DAYS[progRange];
+  const cutoff = days ? addDaysStr(today, -days) : earliest;
+  const fromWeek = isoWeekKey(cutoff < earliest && days ? earliest : cutoff);   // don't draw empty weeks before your first workout
+  const weeks = []; for(let w = fromWeek; w <= curWk; w = addDaysStr(w, 7)) weeks.push(w);
+  const target = getWeeklyPrescribedSets();
+  const setsIn = {}; entries.forEach(e => { const wk = isoWeekKey(e.date); setsIn[wk] = (setsIn[wk] || 0) + e.reps.length; });
+  const wkData = weeks.map(w => ({wk: w, sets: setsIn[w] || 0, pct: Math.round((setsIn[w] || 0) / target * 100), cur: w === curWk}));
+  const done = wkData.filter(w => !w.cur), basis = done.length ? done : wkData;
+  const totalSets = wkData.reduce((n, w) => n + w.sets, 0);
+  const avgPct = basis.length ? Math.round(basis.reduce((n, w) => n + w.pct, 0) / basis.length) : 0;
+  const rangeStart = weeks[0];
+  const trainDays = new Set(entries.filter(e => e.date >= rangeStart).map(e => e.date)).size;
+  let prevSets = null;
+  if(days){ const pStart = isoWeekKey(addDaysStr(rangeStart, -days)); prevSets = 0; for(let w = pStart; w < rangeStart; w = addDaysStr(w, 7)) prevSets += setsIn[w] || 0; }
+  const dSets = prevSets ? Math.round((totalSets - prevSets) / prevSets * 100) : null;
+
+  // lifts: first vs latest weekly best inside the range
+  const skip = new Set([...WARMUP, ...FINISHER].map(x => x.name.toLowerCase()).concat(['recovery walk']));
+  const names = [...new Set(entries.map(e => e.name))].filter(n => !skip.has(n.toLowerCase()));
+  const gains = [];
+  names.forEach(n => {
+    const ser = liftSeries(entries, n, fromWeek);
+    if(ser.pts.length < 2) return;
+    const a = ser.pts[0].v, b = ser.pts[ser.pts.length - 1].v;
+    gains.push({name: n, unit: ser.unit, a, b, diff: +(b - a).toFixed(1), pct: a ? Math.round((b - a) / a * 100) : 0, n: ser.pts.length});
+  });
+  gains.sort((x, y) => y.pct - x.pct);
+  const upCount = gains.filter(g => g.diff > 0).length;
+  if(!progLift || !names.includes(progLift)) progLift = (gains[0] && gains[0].name) || names[0] || null;
+
+  // ---- weekly completion columns ----
+  const W = 340, H = 150, L = 34, R = 6, T = 14, B = 20, pw = W - L - R, ph = H - T - B;
+  const yMax = Math.max(100, Math.ceil(Math.max(...wkData.map(w => w.pct)) / 20) * 20);
+  const yy = v => T + ph - v / yMax * ph;
+  const slot = pw / wkData.length, bw = Math.min(24, Math.max(2, slot - 2));
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Weekly completion percent">`;
+  [0, 75, 95].forEach(v => { svg += `<line x1="${L}" x2="${W - R}" y1="${yy(v)}" y2="${yy(v)}" stroke="var(--line)" stroke-width="1"/><text x="${L - 5}" y="${yy(v) + 3}" text-anchor="end" font-size="9" fill="var(--text-dim)">${v}%</text>`; });
+  wkData.forEach((w, i) => {
+    const x = L + i * slot + (slot - bw) / 2, h = Math.max(w.pct ? 2 : 0, w.pct / yMax * ph), y = T + ph - h;
+    const fill = w.cur ? 'var(--accent)' : w.pct >= 75 ? 'var(--accent)' : MUTED_BAR;
+    if(h > 0) svg += `<path d="M${x},${T + ph} V${y + Math.min(4, h)} Q${x},${y} ${x + Math.min(4, bw / 2)},${y} H${x + bw - Math.min(4, bw / 2)} Q${x + bw},${y} ${x + bw},${y + Math.min(4, h)} V${T + ph} Z" fill="${fill}" ${w.cur ? 'opacity="0.45"' : ''}/>`;
+    svg += `<rect class="pr-hit" data-i="${i}" x="${L + i * slot}" y="${T}" width="${slot}" height="${ph + B}" fill="transparent"/>`;
+  });
+  const lastDone = done[done.length - 1];
+  if(lastDone && lastDone.pct > 0){ const i = wkData.indexOf(lastDone); svg += `<text x="${L + i * slot + slot / 2}" y="${yy(lastDone.pct) - 4}" text-anchor="middle" font-size="10" fill="var(--text)" font-weight="700">${lastDone.pct}%</text>`; }
+  const tickIdx = wkData.length <= 4 ? wkData.map((_, i) => i) : [0, Math.floor((wkData.length - 1) / 2), wkData.length - 1];
+  tickIdx.forEach(i => { svg += `<text x="${L + i * slot + slot / 2}" y="${H - 5}" text-anchor="${i === 0 ? 'start' : i === wkData.length - 1 ? 'end' : 'middle'}" font-size="9" fill="var(--text-dim)">${fmtShort(wkData[i].wk)}</text>`; });
+  svg += '</svg>';
+  const colChart = `<div class="pr-chart" id="prCols">${svg}<div class="pr-tip hidden"></div></div>
+    <div class="pr-leg"><span><i style="background:var(--accent)"></i>75%+ (reward week)</span><span><i style="background:${MUTED_BAR}"></i>under 75%</span><span><i style="background:var(--accent);opacity:.45"></i>this week so far</span></div>`;
+
+  // ---- one lift over time (line) ----
+  let lineChart = '';
+  const ser = progLift ? liftSeries(entries, progLift, fromWeek) : {pts: [], unit: ''};
+  if(ser.pts.length){
+    const vs = ser.pts.map(p => p.v);
+    let lo = Math.min(...vs), hi = Math.max(...vs); if(lo === hi){ lo -= 1; hi += 1; }
+    const step = niceStep((hi - lo) / 3); lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+    const t0 = new Date(ser.pts[0].date + 'T00:00:00').getTime(), t1 = new Date(ser.pts[ser.pts.length - 1].date + 'T00:00:00').getTime();
+    const xx = d => ser.pts.length === 1 || t1 === t0 ? L + pw / 2 : L + (new Date(d + 'T00:00:00').getTime() - t0) / (t1 - t0) * (pw - 10) + 5;
+    const y2 = v => T + ph - (v - lo) / (hi - lo) * ph;
+    let g = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(progLift)} progress">`;
+    for(let v = lo; v <= hi + 1e-9; v += step){ g += `<line x1="${L}" x2="${W - R}" y1="${y2(v)}" y2="${y2(v)}" stroke="var(--line)" stroke-width="1"/><text x="${L - 5}" y="${y2(v) + 3}" text-anchor="end" font-size="9" fill="var(--text-dim)">${+v.toFixed(1)}</text>`; }
+    const path = ser.pts.map((p, i) => (i ? 'L' : 'M') + xx(p.date).toFixed(1) + ',' + y2(p.v).toFixed(1)).join(' ');
+    if(ser.pts.length > 1) g += `<path d="${path} L${xx(ser.pts[ser.pts.length - 1].date)},${T + ph} L${xx(ser.pts[0].date)},${T + ph} Z" fill="var(--accent)" opacity="0.10"/><path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    ser.pts.forEach((p, i) => { const last = i === ser.pts.length - 1; g += `<circle cx="${xx(p.date)}" cy="${y2(p.v)}" r="${last ? 5 : 4}" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>`; });
+    const lp = ser.pts[ser.pts.length - 1];
+    g += `<text x="${Math.min(W - R, xx(lp.date))}" y="${y2(lp.v) - 9}" text-anchor="end" font-size="10" fill="var(--text)" font-weight="700">${lp.v}${ser.unit}</text>`;
+    g += `<text x="${L}" y="${H - 5}" font-size="9" fill="var(--text-dim)">${fmtShort(ser.pts[0].date)}</text><text x="${W - R}" y="${H - 5}" text-anchor="end" font-size="9" fill="var(--text-dim)">${fmtShort(lp.date)}</text>`;
+    g += `<line id="prCross" y1="${T}" y2="${T + ph}" stroke="var(--text-dim)" stroke-width="1" style="display:none"/><rect id="prLineHit" x="${L}" y="${T}" width="${pw}" height="${ph + B}" fill="transparent"/></svg>`;
+    lineChart = `<div class="pr-chart" id="prLine">${g}<div class="pr-tip hidden"></div></div>`;
+  } else lineChart = '<div class="empty" style="padding:14px 0;">No data for this lift in this range.</div>';
+
+  const gainRows = gains.slice(0, 6).map(g => {
+    const cls = g.diff > 0 ? 'wg-up' : g.diff < 0 ? 'wg-down' : 'wg-same';
+    const sign = g.diff > 0 ? '▲ +' : g.diff < 0 ? '▼ ' : '= ';
+    return `<div class="wg-row"><div style="flex:1;"><div style="font-weight:700;">${esc(g.name)}</div><div style="font-size:12px;color:var(--text-dim);font-family:var(--font-mono);">${g.a}${g.unit} → ${g.b}${g.unit}</div></div><div class="${cls}" style="font-family:var(--font-mono);font-size:13px;text-align:right;">${sign}${g.diff}${g.unit}<br><span style="font-size:11px;">${g.pct > 0 ? '+' : ''}${g.pct}%</span></div></div>`;
+  }).join('');
+
+  const rangeLbl = progRange === 'All' ? 'since your first workout' : 'last ' + ({'1M':'month','3M':'3 months','6M':'6 months','1Y':'year'})[progRange];
+  const tbl = `<details style="margin-top:12px;"><summary style="font-size:12px;color:var(--text-dim);">Show weekly numbers as a table</summary><table style="width:100%;font-family:var(--font-mono);font-size:12px;margin-top:6px;border-collapse:collapse;"><tr style="color:var(--text-dim);text-align:left;"><th>Week of</th><th>Sets</th><th>%</th></tr>${wkData.slice().reverse().map(w => `<tr><td>${fmtShort(w.wk)}${w.cur ? ' (now)' : ''}</td><td>${w.sets}</td><td>${w.pct}%</td></tr>`).join('')}</table></details>`;
+
+  card.innerHTML = `<h3>PROGRESS OVER TIME</h3>
+    <div style="font-size:12px;color:var(--text-dim);margin-top:4px;">Showing the ${rangeLbl}</div>
+    <div class="pr-pills">${pills}</div>
+    <div class="pr-tiles">
+      <div class="pr-tile"><div class="v">${totalSets}</div><div class="l">Sets done</div>${dSets == null ? '' : `<div class="d ${dSets > 0 ? 'wg-up' : dSets < 0 ? 'wg-down' : 'wg-same'}">${dSets > 0 ? '▲ +' : dSets < 0 ? '▼ ' : '= '}${dSets}% vs previous period</div>`}</div>
+      <div class="pr-tile"><div class="v">${avgPct}%</div><div class="l">Average week</div><div class="d wg-same">${avgPct >= 95 ? '2 rewards level' : avgPct >= 75 ? '1 reward level' : 'under 75%'}</div></div>
+      <div class="pr-tile"><div class="v">${trainDays}</div><div class="l">Training days</div></div>
+      <div class="pr-tile"><div class="v">${upCount}<span style="font-size:14px;color:var(--text-dim);"> of ${gains.length}</span></div><div class="l">Lifts stronger than at the start</div></div>
+    </div>
+    <h3 style="margin-top:18px;">WEEKLY COMPLETION</h3>
+    ${colChart}
+    <h3 style="margin-top:18px;">ONE LIFT OVER TIME</h3>
+    <select id="prLiftSel" style="margin-top:8px;">${names.map(n => `<option value="${esc(n)}" ${n === progLift ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>
+    <div style="font-size:11px;color:var(--text-dim);margin-top:6px;">Best ${ser.unit === 'kg' ? 'weight' : 'single set'} each week (${ser.unit || '–'})</div>
+    ${lineChart}
+    ${gainRows ? `<h3 style="margin-top:18px;">BIGGEST GAINS</h3>${gainRows}` : ''}
+    ${tbl}`;
+  bindProg(card);
+
+  // hover / tap tooltips
+  function tipShow(host, html, xPx){ const tip = host.querySelector('.pr-tip'); tip.innerHTML = html; tip.classList.remove('hidden'); tip.style.left = Math.max(60, Math.min(host.clientWidth - 60, xPx)) + 'px'; tip.style.top = '8px'; }
+  function tipHide(host){ host.querySelector('.pr-tip').classList.add('hidden'); }
+  const cols = document.getElementById('prCols');
+  if(cols){
+    cols.querySelectorAll('.pr-hit').forEach(r => {
+      const show = () => { const w = wkData[+r.dataset.i]; const br = r.getBoundingClientRect(), hr = cols.getBoundingClientRect(); tipShow(cols, `<b>Week of ${fmtShort(w.wk)}${w.cur ? ' (so far)' : ''}</b><br>${w.sets} sets · ${w.pct}% of plan`, br.left - hr.left + br.width / 2); };
+      r.addEventListener('pointerenter', show); r.addEventListener('pointerdown', show); r.addEventListener('pointerleave', () => tipHide(cols));
+    });
+  }
+  const line = document.getElementById('prLine');
+  if(line && ser.pts.length){
+    const hit = document.getElementById('prLineHit'), cross = document.getElementById('prCross'), svgEl = line.querySelector('svg');
+    const move = ev => {
+      const r = svgEl.getBoundingClientRect(), px = (ev.clientX - r.left) / r.width * W;
+      let best = 0, bd = 1e9; ser.pts.forEach((p, i) => { const d = Math.abs(((ser.pts.length === 1 || t1b === t0b) ? L + pw / 2 : L + (new Date(p.date + 'T00:00:00').getTime() - t0b) / (t1b - t0b) * (pw - 10) + 5) - px); if(d < bd){ bd = d; best = i; } });
+      const p = ser.pts[best], cx = ((ser.pts.length === 1 || t1b === t0b) ? L + pw / 2 : L + (new Date(p.date + 'T00:00:00').getTime() - t0b) / (t1b - t0b) * (pw - 10) + 5);
+      cross.setAttribute('x1', cx); cross.setAttribute('x2', cx); cross.style.display = '';
+      tipShow(line, `<b>${fmtShort(p.date)}</b><br>${p.v}${ser.unit}`, cx / W * line.clientWidth);
+    };
+    const t0b = new Date(ser.pts[0].date + 'T00:00:00').getTime(), t1b = new Date(ser.pts[ser.pts.length - 1].date + 'T00:00:00').getTime();
+    hit.addEventListener('pointermove', move); hit.addEventListener('pointerdown', move);
+    hit.addEventListener('pointerleave', () => { cross.style.display = 'none'; tipHide(line); });
+  }
+}
+function bindProg(card){
+  card.onclick = ev => {
+    const pill = ev.target.closest('.pr-pill'); if(!pill) return;
+    progRange = pill.dataset.range; try{ localStorage.setItem('ironlog_prog_range', progRange); }catch(e){}
+    renderProgress(lastDashboardEntries);
+  };
+  const sel = card.querySelector('#prLiftSel'); if(sel) sel.onchange = () => { progLift = sel.value; renderProgress(lastDashboardEntries); };
+}
+
+// ===================== EDIT PAST WORKOUTS =====================
+// Works on the permanent history rows (id arch-… or manual-…). Nothing here touches this week's live slots.
+let histRows = [];          // [{id, date, exercises:[{name, weight, reps:[], restActualSec:[]}]}]
+let histWeek = null;        // Sunday date string of the week being viewed
+let histDay = null;         // date string
+let histDirty = false;
+const esc = (t) => String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+async function loadHistRows(){
+  if(!CLOUD_ENABLED) return [];
+  const {data, error} = await sb.from(TABLE).select('id,date,exercises').eq('status','complete').order('date',{ascending:true});
+  if(error){ console.error(error); throw error; }
+  return (data || []).map(r => ({id:r.id, date:r.date, exercises: JSON.parse(JSON.stringify(r.exercises || []))}));
+}
+async function openHistoryTab(){
+  const panel = document.getElementById('histPanel');
+  if(!CLOUD_ENABLED){ panel.innerHTML = '<div class="card empty">Editing needs the cloud connection.</div>'; return; }
+  try{ histRows = await loadHistRows(); }
+  catch(e){ panel.innerHTML = '<div class="card empty">Could not load history. Check your connection and reopen this tab.</div>'; return; }
+  histDirty = false;
+  const names = new Set(); Object.values(ROUTINE).forEach(r => r.exercises.forEach(x => names.add(x.name)));
+  histRows.forEach(r => r.exercises.forEach(x => names.add(x.name)));
+  document.getElementById('histNames').innerHTML = [...names].sort().map(n => `<option value="${esc(n)}">`).join('');
+  if(!histWeek) histWeek = isoWeekKey(addDaysStr(todayStr(), -7));
+  if(!histDay || isoWeekKey(histDay) !== histWeek) histDay = pickDefaultHistDay();
+  renderHistory();
+}
+function pickDefaultHistDay(){
+  let best = null;
+  for(let i = 0; i < 7; i++){ const d = addDaysStr(histWeek, i); if(histRows.some(r => r.date === d)) best = d; }
+  return best || histWeek;
+}
+function histSetCount(date){ return histRows.filter(r => r.date === date).reduce((n, r) => n + r.exercises.reduce((m, e) => m + e.reps.length, 0), 0); }
+function renderHistory(){
+  const thisWeek = isoWeekKey(todayStr());
+  document.getElementById('histWeekLabel').textContent = (histWeek === thisWeek ? 'This week · ' : histWeek === isoWeekKey(addDaysStr(todayStr(), -7)) ? 'Last week · ' : '') +
+    new Date(histWeek + 'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}) + ' – ' + new Date(addDaysStr(histWeek, 6) + 'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+  document.getElementById('histNext').disabled = histWeek >= thisWeek;
+  document.getElementById('histDays').innerHTML = Array.from({length:7}, (_, i) => {
+    const d = addDaysStr(histWeek, i), n = histSetCount(d);
+    const lab = new Date(d + 'T00:00:00').toLocaleDateString('en-GB',{weekday:'short'});
+    return `<div class="hday ${n ? 'has' : ''} ${d === histDay ? 'sel' : ''}" data-d="${d}">${lab}<b>${d.slice(8)}</b>${n ? n + ' sets' : '–'}</div>`;
+  }).join('');
+  document.querySelectorAll('#histDays .hday').forEach(el => el.onclick = async () => {
+    if(histDirty){ if(!confirm('You have unsaved edits for this day. Switch anyway?')) return; await discardHistEdits(); }
+    histDay = el.dataset.d; renderHistory();
+  });
+  renderHistDay();
+}
+async function discardHistEdits(){ try{ histRows = await loadHistRows(); }catch(e){} histDirty = false; }
+
+function renderHistDay(){
+  const panel = document.getElementById('histPanel');
+  const rows = histRows.filter(r => r.date === histDay);
+  const label = new Date(histDay + 'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'short'});
+  let h = `<div class="card"><h3>${label}</h3>`;
+  if(histDay === todayStr() || isoWeekKey(histDay) === isoWeekKey(todayStr())){
+    h += `<div class="fallback-toggle" style="margin-top:6px;">Sets you are still logging this week live in the Workout tab. This list only shows workouts already saved to history.</div>`;
+  }
+  if(!rows.length) h += `<div class="empty" style="padding:16px 0;">Nothing logged this day. Add an exercise below to create it.</div>`;
+  rows.forEach((r, ri) => r.exercises.forEach((ex, ei) => {
+    h += `<div class="hex"><div class="hex-top"><div class="hex-name">${esc(ex.name)}</div>
+      <input class="hin" type="number" inputmode="decimal" step="0.5" placeholder="kg" value="${ex.weight == null ? '' : ex.weight}" data-act="w" data-r="${ri}" data-e="${ei}"><span style="color:var(--text-dim);font-size:12px;">kg</span>
+      <button class="hx" data-act="delex" data-r="${ri}" data-e="${ei}">🗑</button></div>`;
+    ex.reps.forEach((rp, si) => {
+      h += `<div class="hset"><span style="width:44px;">Set ${si + 1}</span><input class="hin" type="number" inputmode="numeric" min="0" value="${rp}" data-act="rep" data-r="${ri}" data-e="${ei}" data-s="${si}"><span>reps</span><button class="hx" data-act="delset" data-r="${ri}" data-e="${ei}" data-s="${si}">✕</button></div>`;
+    });
+    h += `<button class="btn btn-ghost" style="padding:8px 14px;margin-top:10px;" data-act="addset" data-r="${ri}" data-e="${ei}">+ Add set</button></div>`;
+  }));
+  h += `<div class="hex"><div style="font-weight:700;margin-bottom:8px;">Add exercise to this day</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <input id="hNewName" list="histNames" placeholder="Exercise name" style="flex:2;min-width:140px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px;color:var(--text);">
+      <input id="hNewW" class="hin" type="number" inputmode="decimal" step="0.5" placeholder="kg">
+      <input id="hNewReps" placeholder="reps e.g. 12 12 10" style="flex:2;min-width:120px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px;color:var(--text);">
+    </div><button class="btn btn-ghost" id="hAddEx" style="padding:8px 14px;margin-top:10px;">+ Add</button></div>`;
+  h += `<button class="btn btn-block" id="hSave">${histDirty ? 'SAVE CHANGES' : 'No changes yet'}</button><div id="hMsg" class="fallback-toggle" style="text-align:center;margin-top:8px;"></div></div>`;
+  panel.innerHTML = h;
+  const saveBtn = document.getElementById('hSave'); saveBtn.disabled = !histDirty; saveBtn.style.opacity = histDirty ? 1 : 0.5;
+  saveBtn.onclick = saveHistDay;
+  document.getElementById('hAddEx').onclick = addHistExercise;
+  panel.querySelectorAll('[data-act]').forEach(el => {
+    const ex = () => histRows.filter(r => r.date === histDay)[+el.dataset.r].exercises[+el.dataset.e];
+    const act = el.dataset.act;
+    if(act === 'w') el.oninput = () => { ex().weight = el.value === '' ? null : parseFloat(el.value); markDirty(); };
+    if(act === 'rep') el.oninput = () => { const v = parseInt(el.value, 10); ex().reps[+el.dataset.s] = isNaN(v) ? 0 : Math.max(0, v); markDirty(); };
+    if(act === 'delset') el.onclick = () => { const e = ex(); e.reps.splice(+el.dataset.s, 1); (e.restActualSec || []).splice(+el.dataset.s, 1); histDirty = true; renderHistDay(); };
+    if(act === 'addset') el.onclick = () => { const e = ex(); e.reps.push(e.reps.length ? e.reps[e.reps.length - 1] : 0); (e.restActualSec = e.restActualSec || []).push(null); histDirty = true; renderHistDay(); };
+    if(act === 'delex') el.onclick = () => { if(!confirm('Remove ' + ex().name + ' from this day? (Applies when you press Save.)')) return; const rr = histRows.filter(r => r.date === histDay)[+el.dataset.r]; rr.exercises.splice(+el.dataset.e, 1); histDirty = true; renderHistDay(); };
+  });
+}
+function markDirty(){
+  histDirty = true;
+  const b = document.getElementById('hSave'); if(b){ b.disabled = false; b.style.opacity = 1; b.textContent = 'SAVE CHANGES'; }
+}
+function addHistExercise(){
+  const name = document.getElementById('hNewName').value.trim();
+  const reps = document.getElementById('hNewReps').value.split(/[\s,\/]+/).map(x => parseInt(x, 10)).filter(x => !isNaN(x) && x >= 0);
+  const wv = document.getElementById('hNewW').value;
+  if(!name || !reps.length){ document.getElementById('hMsg').textContent = 'Type the exercise name and at least one rep number.'; return; }
+  let row = histRows.find(r => r.date === histDay);
+  if(!row){ row = {id:'manual-' + histDay + '-' + Date.now(), date:histDay, exercises:[], _new:true}; histRows.push(row); }
+  row.exercises.push({name, weight: wv === '' ? null : parseFloat(wv), reps, restActualSec: reps.map(() => null)});
+  histDirty = true; renderHistDay();
+}
+async function saveHistDay(){
+  const btn = document.getElementById('hSave'), msg = document.getElementById('hMsg');
+  btn.disabled = true; msg.textContent = 'Saving…';
+  const rows = histRows.filter(r => r.date === histDay);
+  let ok = true;
+  for(const r of rows){
+    r.exercises = r.exercises.filter(e => e.reps.length);          // an exercise with 0 sets is removed
+    r.exercises.forEach(e => { e.restActualSec = e.reps.map((_, i) => (e.restActualSec && e.restActualSec[i] != null) ? e.restActualSec[i] : null); });
+    try{
+      let res;
+      if(r.exercises.length) res = await sb.from(TABLE).upsert({id:r.id, date:r.date, exercises:r.exercises, status:'complete'});
+      else if(r._new) res = {error:null};
+      else res = await sb.from(TABLE).delete().eq('id', r.id);
+      if(res.error){ console.error(res.error); ok = false; }
+    }catch(e){ console.error(e); ok = false; }
+  }
+  if(!ok){ msg.textContent = '⚠ Could not save to the cloud. Your edits are still on screen — tap Save again.'; btn.disabled = false; return; }
+  histRows = histRows.filter(r => r.exercises.length);
+  sessions = await loadSessions();                                  // weight suggestions + dashboard use the corrected numbers
+  histDirty = false; renderHistory();
+  document.getElementById('hMsg').textContent = '✅ Saved to the cloud.';
+}
 
 // ===================== FINISH & SAVE =====================
 async function saveWorkout(){
@@ -1064,10 +1701,10 @@ function setupMic(btnId, targetInputId, onDoneCallback){
 
 // ===================== DASHBOARD =====================
 function isoWeekKey(d){
-  // Monday-start week, computed on the local calendar (not UTC) so Malaysia early mornings land correctly
+  // Sunday-start week (Sun 00:00 to Sat 23:59), computed on the local calendar (not UTC) so Malaysia early mornings land correctly
   const date = typeof d === 'string' ? new Date(d + 'T00:00:00') : new Date(d);
   date.setHours(0,0,0,0);
-  const day = (date.getDay()+6)%7;
+  const day = date.getDay();
   date.setDate(date.getDate()-day);
   return fmtLocal(date);
 }
@@ -1104,11 +1741,14 @@ let lastDashboardEntries = [];
 async function renderDashboard(){
   const entries = await buildDashboardEntries();
   lastDashboardEntries = entries;
+  renderWeekGlance(entries);
+  renderProgress(entries);
+  renderTargetsCard();
   const trainingDates = [...new Set(entries.map(e=>e.date))].sort();
 
   document.getElementById('statTotal').textContent = trainingDates.length;
   const now = new Date();
-  const weekStart = new Date(now); weekStart.setDate(now.getDate() - ((now.getDay()+6)%7)); weekStart.setHours(0,0,0,0);
+  const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay()); weekStart.setHours(0,0,0,0);
   document.getElementById('statWeek').textContent = trainingDates.filter(d => new Date(d + 'T00:00:00') >= weekStart).length;
 
   const dateSet = new Set(trainingDates);
@@ -1586,6 +2226,9 @@ function renderAiMotivationDisplay(payload){
 
 // ===================== EVENTS =====================
 function bindEvents(){
+  document.getElementById('histPrev').onclick = async () => { if(histDirty){ if(!confirm('Unsaved edits will be lost. Continue?')) return; await discardHistEdits(); } histWeek = addDaysStr(histWeek, -7); histDay = pickDefaultHistDay(); renderHistory(); };
+  document.getElementById('histNext').onclick = async () => { if(histDirty){ if(!confirm('Unsaved edits will be lost. Continue?')) return; await discardHistEdits(); } histWeek = addDaysStr(histWeek, 7); histDay = pickDefaultHistDay(); renderHistory(); };
+  document.getElementById('syncRetryBtn').addEventListener('click', async () => { await retryPending(); });
   document.getElementById('logSetBtn').onclick = logSet;
   document.getElementById('repsInput').addEventListener('keydown', e=>{ if(e.key==='Enter') logSet(); });
   document.getElementById('pauseBtn').onclick = togglePause;
@@ -1625,6 +2268,8 @@ function bindEvents(){
       document.getElementById('tab-workout').classList.toggle('hidden', tab!=='workout');
       document.getElementById('tab-dashboard').classList.toggle('hidden', tab!=='dashboard');
       document.getElementById('tab-rewards').classList.toggle('hidden', tab!=='rewards');
+      document.getElementById('tab-history').classList.toggle('hidden', tab!=='history');
+      if(tab==='history') openHistoryTab();
       if(tab==='dashboard') renderDashboard();
       if(tab==='rewards') renderRewardsTab();
     };
