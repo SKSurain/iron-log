@@ -401,7 +401,7 @@
 // ===================== CONFIG =====================
 const SUPABASE_URL = 'https://iehpagvflcenkfrujyjy.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_6WZrZriQc-te1hGVlPOpjw_S0IQpDJD';
-const APP_VERSION = 'v4.11 · 2026-10-18';
+const APP_VERSION = 'v4.12 · 2026-10-18';
 const CLOUD_ENABLED = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 10;
 const sb = CLOUD_ENABLED ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 const TABLE = 'iron_log_sessions';
@@ -648,9 +648,22 @@ function updateHistWarn(){
   if(lastLoadError) document.getElementById('histWarnTxt').textContent = "⚠ Can't reach your cloud history right now (" + lastLoadError + "). " + (histCacheAt ? 'Using the copy saved on this phone from ' + new Date(histCacheAt).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) + '. ' : 'Suggestions and charts will be empty until it connects. ') + 'Your new sets are still saved on this phone.';
 }
 async function retryHistory(){
+  const btn = document.getElementById('histRetryBtn');
+  btn.disabled = true; btn.textContent = 'Trying…';
   sessions = await loadSessions();
   updateHistWarn();
-  if(state){ state = reconcileWithTemplate(state, state.dayIndex); render(); }
+  const at = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  if(lastLoadError){
+    document.getElementById('histWarnTxt').textContent += ' Tried again at ' + at + ': still can\'t connect. Open Dashboard → Data check for the exact reason.';
+  } else {
+    // connection is back: push everything that only lives on this phone up to the cloud
+    for(const k of Object.keys(liveSlots)){ const sl = liveSlots[k]; if(sl && sl.exercises && sl.exercises.some(e => e.setLog && e.setLog.length)) await saveActive(sl); }
+    await retryPending();
+    updateSyncWarn();
+    if(state){ state = reconcileWithTemplate(state, state.dayIndex); render(); }
+    alert('Connected ✅ Your history is back and everything saved on this phone was sent to the cloud.');
+  }
+  btn.disabled = false; btn.textContent = 'Retry';
 }
 function updateSyncWarn(){ const el = document.getElementById('syncWarn'); if(el) el.classList.toggle('hidden', getPending().length === 0); }
 async function retryPending(){
@@ -1571,6 +1584,9 @@ async function runDataCheck(){
       catch(e){ L.push('  ❌ ' + label + ': ' + (e.message || e)); return null; }
     };
     L.push('Connection tests:');
+    await probe('server reachable at all (raw)', async () => { await fetch(SUPABASE_URL + '/rest/v1/', {mode:'no-cors', cache:'no-store'}); return {note:'→ server answered'}; });
+    await probe('server health (raw)', async () => { const r = await fetch(SUPABASE_URL + '/auth/v1/health?apikey=' + SUPABASE_ANON_KEY, {cache:'no-store'}); return {note:'→ HTTP ' + r.status}; });
+    await probe('database API (raw)', async () => { const r = await fetch(SUPABASE_URL + '/rest/v1/' + TABLE + '?select=id&limit=1&apikey=' + SUPABASE_ANON_KEY, {cache:'no-store'}); return {note:'→ HTTP ' + r.status}; });
     await probe('read 1 row', () => sb.from(TABLE).select('id').limit(1));
     await probe('count history rows', async () => { const r = await sb.from(TABLE).select('id',{count:'exact',head:true}).eq('status','complete'); if(!r.error) r.note = '→ ' + r.count + ' rows'; return r; });
     await probe("read today's slot", () => sb.from(TABLE).select('id,date').eq('id','active-' + new Date().getDay()).maybeSingle());
