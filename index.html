@@ -399,9 +399,9 @@
 
 <script>
 // ===================== CONFIG =====================
-const SUPABASE_URL = 'https://iehpagvflcenkfrujyjy.supabase.co';
+const SUPABASE_URL = 'https://iehpagvfclenkfrujyjy.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_6WZrZriQc-te1hGVlPOpjw_S0IQpDJD';
-const APP_VERSION = 'v4.12 · 2026-10-18';
+const APP_VERSION = 'v4.13 · 2026-10-18';
 const CLOUD_ENABLED = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 10;
 const sb = CLOUD_ENABLED ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 const TABLE = 'iron_log_sessions';
@@ -727,8 +727,8 @@ async function init(){
   document.getElementById('todayLabel').textContent = todayLabelFmt();
   document.getElementById('versionTag').textContent = APP_VERSION;
   const badge = document.getElementById('cloudBadge');
-  badge.textContent = CLOUD_ENABLED ? 'cloud synced' : 'local only';
-  badge.className = 'cloud-badge ' + (CLOUD_ENABLED ? 'on' : 'off');
+  badge.textContent = CLOUD_ENABLED ? 'connecting…' : 'local only';
+  badge.className = 'cloud-badge off';
 
   const sel = document.getElementById('dayOverride');
   sel.innerHTML = Object.keys(ROUTINE).map(k => `<option value="${k}">${ROUTINE[k].label} — ${ROUTINE[k].focus}${ROUTINE[k].dayNote?' (optional)':''}</option>`).join('');
@@ -774,6 +774,15 @@ async function loadToday(){
     sel.value = defaultDay;
     await applyLoadedActive(slotMap[defaultDay] || null, defaultDay);
     updateSyncWarn(); updateHistWarn();
+    if(CLOUD_ENABLED){
+      const badge = document.getElementById('cloudBadge');
+      if(lastLoadError){ badge.textContent = '⚠ sync error — saved locally only'; badge.className = 'cloud-badge off'; }
+      else {
+        badge.textContent = 'cloud synced'; badge.className = 'cloud-badge on';
+        // anything logged this week that only exists on this phone goes up to the cloud now
+        await Promise.all(Object.keys(slotMap).map(k => { const sl = slotMap[k]; return (sl && sl.exercises && sl.exercises.some(e => e.setLog && e.setLog.length)) ? saveActive(sl) : null; }));
+      }
+    }
     const db = document.getElementById('deloadBanner');
     if(db) db.classList.toggle('hidden', !isDeloadWeek());
   } finally { rolloverBusy = false; }
@@ -1576,6 +1585,7 @@ async function runDataCheck(){
   L.push('App version: ' + APP_VERSION);
   L.push('Phone says online: ' + (navigator.onLine ? 'yes' : 'NO'));
   L.push('Cloud: ' + (CLOUD_ENABLED ? 'on' : 'OFF (local only)'));
+  L.push('Server address: ' + SUPABASE_URL.replace('https://',''));
   let rows = [];
   if(CLOUD_ENABLED){
     const probe = async (label, fn) => {
