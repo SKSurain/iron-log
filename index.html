@@ -179,6 +179,11 @@
     <button id="syncRetryBtn" style="margin-left:6px;background:var(--warn);color:#000;border:0;border-radius:6px;padding:4px 10px;font-weight:700;">Retry</button>
   </div>
 
+  <div id="histWarn" class="hidden" style="background:rgba(255,201,74,0.12);color:var(--warn);border-radius:10px;padding:10px 12px;margin:8px 0;font-size:13px;line-height:1.4;">
+    <span id="histWarnTxt"></span>
+    <button id="histRetryBtn" style="margin-left:6px;background:var(--warn);color:#000;border:0;border-radius:6px;padding:4px 10px;font-weight:700;">Retry</button>
+  </div>
+
   <div id="loadingMsg" class="empty" style="padding:40px 0;">Loading your plan…</div>
 
   <div class="tabs">
@@ -396,7 +401,7 @@
 // ===================== CONFIG =====================
 const SUPABASE_URL = 'https://iehpagvflcenkfrujyjy.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_6WZrZriQc-te1hGVlPOpjw_S0IQpDJD';
-const APP_VERSION = 'v4.10 · 2026-10-18';
+const APP_VERSION = 'v4.11 · 2026-10-18';
 const CLOUD_ENABLED = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 10;
 const sb = CLOUD_ENABLED ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 const TABLE = 'iron_log_sessions';
@@ -502,12 +507,41 @@ const ROUTINE = {
 const DAY_NAMES = {1:'Monday',2:'Tuesday',3:'Wednesday',4:'Thursday',5:'Friday',0:'Sunday',6:'Saturday'};
 
 // ===================== STORAGE =====================
+// Reads all finished sessions in small pages, retrying each page, so a slow or flaky connection
+// does not wipe out your history. A copy is kept on the phone and used if the cloud can't be reached.
+async function fetchCompletePaged(cols){
+  const PAGE = 200, out = [];
+  for(let from = 0; ; from += PAGE){
+    let res = null, lastErr = null;
+    for(let attempt = 0; attempt < 3; attempt++){
+      try{
+        const r = await sb.from(TABLE).select(cols).eq('status','complete').order('date',{ascending:true}).order('id',{ascending:true}).range(from, from + PAGE - 1);
+        if(!r.error){ res = r; break; }
+        lastErr = r.error;
+      }catch(e){ lastErr = e; }
+      await new Promise(r => setTimeout(r, 250 * (attempt + 1)));
+    }
+    if(!res) throw new Error((lastErr && (lastErr.message || String(lastErr))) || 'Load failed');
+    out.push(...(res.data || []));
+    if((res.data || []).length < PAGE) break;
+  }
+  return out;
+}
+let histCacheAt = null;
 async function loadSessions(){
   if(CLOUD_ENABLED){
-    const {data, error} = await sb.from(TABLE).select('*').eq('status','complete').order('date',{ascending:true});
-    if(error){ console.error(error); lastLoadError = error.message || String(error); return []; }
-    lastLoadError = null;
-    return data.map(r => ({date:r.date, exercises:r.exercises}));
+    try{
+      const data = await fetchCompletePaged('date,exercises');
+      lastLoadError = null; histCacheAt = null;
+      const list = data.map(r => ({date:r.date, exercises:r.exercises}));
+      try{ localStorage.setItem('ironlog_history_cache', JSON.stringify({savedAt: Date.now(), list})); }catch(e){}
+      return list;
+    }catch(e){
+      console.error('history load failed', e);
+      lastLoadError = e.message || String(e);
+      try{ const c = JSON.parse(localStorage.getItem('ironlog_history_cache') || 'null'); if(c && c.list){ histCacheAt = c.savedAt; return c.list; } }catch(_){}
+      return [];
+    }
   }
   try{ const r = await window.storage.get('sessions', false); return r ? JSON.parse(r.value) : []; }catch(e){ return []; }
 }
@@ -607,6 +641,16 @@ function stashPending(slot){
   const id = slot.dayIndex + '-' + (slot._createdAt || slot.date);
   if(!list.some(p => p.dayIndex + '-' + (p._createdAt || p.date) === id)) list.push(slot);
   return setPending(list);
+}
+function updateHistWarn(){
+  const el = document.getElementById('histWarn'); if(!el) return;
+  el.classList.toggle('hidden', !lastLoadError);
+  if(lastLoadError) document.getElementById('histWarnTxt').textContent = "⚠ Can't reach your cloud history right now (" + lastLoadError + "). " + (histCacheAt ? 'Using the copy saved on this phone from ' + new Date(histCacheAt).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) + '. ' : 'Suggestions and charts will be empty until it connects. ') + 'Your new sets are still saved on this phone.';
+}
+async function retryHistory(){
+  sessions = await loadSessions();
+  updateHistWarn();
+  if(state){ state = reconcileWithTemplate(state, state.dayIndex); render(); }
 }
 function updateSyncWarn(){ const el = document.getElementById('syncWarn'); if(el) el.classList.toggle('hidden', getPending().length === 0); }
 async function retryPending(){
@@ -716,7 +760,7 @@ async function loadToday(){
     liveSlots = slotMap;
     sel.value = defaultDay;
     await applyLoadedActive(slotMap[defaultDay] || null, defaultDay);
-    updateSyncWarn();
+    updateSyncWarn(); updateHistWarn();
     const db = document.getElementById('deloadBanner');
     if(db) db.classList.toggle('hidden', !isDeloadWeek());
   } finally { rolloverBusy = false; }
@@ -1513,37 +1557,46 @@ function bindProg(card){
 // ===================== DATA CHECK =====================
 async function runDataCheck(){
   const out = document.getElementById('diagOut'), q = document.getElementById('diagSearch').value.trim().toLowerCase();
+  const norm = t => String(t).toLowerCase().replace(/[^a-z0-9]/g, '');
   out.textContent = 'Checking…';
   const L = [];
   L.push('App version: ' + APP_VERSION);
+  L.push('Phone says online: ' + (navigator.onLine ? 'yes' : 'NO'));
   L.push('Cloud: ' + (CLOUD_ENABLED ? 'on' : 'OFF (local only)'));
   let rows = [];
   if(CLOUD_ENABLED){
-    try{ rows = await loadHistRows(); L.push('History rows in cloud: ' + rows.length); }
-    catch(e){ L.push('⚠ Could not read cloud history: ' + (e.message || e)); }
+    const probe = async (label, fn) => {
+      const t0 = performance.now();
+      try{ const r = await fn(); if(r && r.error) throw new Error(r.error.message || JSON.stringify(r.error)); L.push('  ✅ ' + label + ' (' + Math.round(performance.now() - t0) + ' ms)' + (r && r.note ? ' ' + r.note : '')); return r; }
+      catch(e){ L.push('  ❌ ' + label + ': ' + (e.message || e)); return null; }
+    };
+    L.push('Connection tests:');
+    await probe('read 1 row', () => sb.from(TABLE).select('id').limit(1));
+    await probe('count history rows', async () => { const r = await sb.from(TABLE).select('id',{count:'exact',head:true}).eq('status','complete'); if(!r.error) r.note = '→ ' + r.count + ' rows'; return r; });
+    await probe("read today's slot", () => sb.from(TABLE).select('id,date').eq('id','active-' + new Date().getDay()).maybeSingle());
+    await probe('write test row', () => sb.from(TABLE).upsert({id:'diag-ping', date: todayStr(), exercises:{t: Date.now()}, status:'config'}));
+    await probe('read all history', async () => { rows = await loadHistRows(); return {note: '→ ' + rows.length + ' rows'}; });
   }
-  L.push('History this phone is using: ' + sessions.length + ' session(s)' + (CLOUD_ENABLED && rows.length !== sessions.length ? '  ⚠ differs from cloud (' + rows.length + ')' : ''));
+  L.push('');
+  L.push('History this phone is using: ' + sessions.length + ' session(s)' + (histCacheAt ? ' (saved copy from ' + new Date(histCacheAt).toLocaleString('en-GB') + ')' : ''));
   if(lastLoadError) L.push('⚠ Last history load error: ' + lastLoadError);
   const dates = rows.map(r => r.date).sort();
   if(dates.length) L.push('Cloud history dates: ' + dates[0] + ' to ' + dates[dates.length - 1]);
-  const names = {}; rows.forEach(r => r.exercises.forEach(e => { names[e.name] = (names[e.name] || 0) + 1; }));
-  L.push('Different exercises in history: ' + Object.keys(names).length);
   L.push('Waiting to be filed (stuck on this phone): ' + getPending().length + ' slot(s)');
   L.push('');
   L.push('In-progress days (not yet history):');
-  Object.keys(ROUTINE).concat([]).forEach(k => {
+  Object.keys(ROUTINE).forEach(k => {
     const sl = liveSlots[k]; const n = sl && sl.exercises ? sl.exercises.reduce((m, e) => m + (e.setLog ? e.setLog.length : 0), 0) : 0;
     L.push('  ' + DAY_NAMES[k] + ': ' + (sl ? 'slot dated ' + sl.date + ', ' + n + ' set(s) logged' : 'empty'));
   });
+  const src = rows.length ? rows : sessions;
   if(q){
     L.push(''); L.push('Saved sessions matching "' + q + '":');
     const hits = [];
-    rows.forEach(r => r.exercises.forEach(e => { if(e.name.toLowerCase().includes(q)) hits.push(r.date + '  ' + e.name + '  ' + (e.weight != null ? e.weight + 'kg × ' : '') + e.reps.join('/')); }));
+    src.forEach(r => (r.exercises || []).forEach(e => { if(norm(e.name).includes(norm(q))) hits.push(r.date + '  ' + e.name + '  ' + (e.weight != null ? e.weight + 'kg × ' : '') + e.reps.join('/')); }));
     hits.sort(); L.push(hits.length ? hits.map(h => '  ' + h).join('\n') : '  none found');
-    const live = []; Object.keys(liveSlots).forEach(k => { const sl = liveSlots[k]; if(sl && sl.exercises) sl.exercises.forEach(e => { if(e.name.toLowerCase().includes(q) && e.setLog && e.setLog.length) live.push('  ' + DAY_NAMES[k] + ' (in progress)  ' + e.name + '  ' + e.setLog.map(x => x.reps).join('/')); }); });
-    if(live.length) L.push(live.join('\n'));
   } else {
-    L.push(''); L.push('Last 8 saved days: ' + [...new Set(dates)].slice(-8).join(', '));
+    L.push(''); L.push('Last 8 saved days: ' + [...new Set(src.map(r => r.date))].sort().slice(-8).join(', '));
   }
   out.textContent = L.join('\n');
 }
@@ -1558,8 +1611,7 @@ const esc = (t) => String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','
 
 async function loadHistRows(){
   if(!CLOUD_ENABLED) return [];
-  const {data, error} = await sb.from(TABLE).select('id,date,exercises').eq('status','complete').order('date',{ascending:true});
-  if(error){ console.error(error); throw error; }
+  const data = await fetchCompletePaged('id,date,exercises');
   return (data || []).map(r => ({id:r.id, date:r.date, exercises: JSON.parse(JSON.stringify(r.exercises || []))}));
 }
 async function openHistoryTab(){
@@ -2286,6 +2338,7 @@ function bindEvents(){
   document.getElementById('histPrev').onclick = async () => { if(histDirty){ if(!confirm('Unsaved edits will be lost. Continue?')) return; await discardHistEdits(); } histWeek = addDaysStr(histWeek, -7); histDay = pickDefaultHistDay(); renderHistory(); };
   document.getElementById('histNext').onclick = async () => { if(histDirty){ if(!confirm('Unsaved edits will be lost. Continue?')) return; await discardHistEdits(); } histWeek = addDaysStr(histWeek, 7); histDay = pickDefaultHistDay(); renderHistory(); };
   document.getElementById('syncRetryBtn').addEventListener('click', async () => { await retryPending(); });
+  document.getElementById('histRetryBtn').addEventListener('click', retryHistory);
   document.getElementById('logSetBtn').onclick = logSet;
   document.getElementById('repsInput').addEventListener('keydown', e=>{ if(e.key==='Enter') logSet(); });
   document.getElementById('pauseBtn').onclick = togglePause;
