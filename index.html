@@ -357,6 +357,13 @@
       <div id="histDays" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:12px;"></div>
     </div>
     <div id="histPanel"></div>
+    <div class="card">
+      <h3>ADD PAST SESSIONS (PASTE MANY)</h3>
+      <p class="fallback-toggle" style="margin-bottom:8px;">One line per exercise: date, name, optional weight with kg, then reps. Example:<br>2026-10-14 Weighted pull-ups 20kg 8 8 7 6<br>2026-10-15 Chin-ups 10 9 8 8</p>
+      <textarea id="pastText" rows="6" placeholder="2026-10-14 Weighted pull-ups 20kg 8 8 7 6" style="width:100%;background:var(--surface-2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px;font-family:var(--font-mono);font-size:12px;box-sizing:border-box;"></textarea>
+      <button class="btn btn-block" id="pastBtn">ADD TO HISTORY</button>
+      <div id="pastMsg" class="fallback-toggle" style="margin-top:8px;white-space:pre-wrap;"></div>
+    </div>
     <datalist id="histNames"></datalist>
   </div>
 
@@ -401,7 +408,7 @@
 // ===================== CONFIG =====================
 const SUPABASE_URL = 'https://iehpagvfclenkfrujyjy.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_6WZrZriQc-te1hGVlPOpjw_S0IQpDJD';
-const APP_VERSION = 'v4.13 · 2026-10-18';
+const APP_VERSION = 'v4.14 · 2026-10-18';
 const CLOUD_ENABLED = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 10;
 const sb = CLOUD_ENABLED ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 const TABLE = 'iron_log_sessions';
@@ -1627,6 +1634,59 @@ async function runDataCheck(){
   out.textContent = L.join('\n');
 }
 
+
+// ---- paste many past sessions at once ----
+function parsePastLine(line){
+  const m = line.trim().match(/^(\d{4}-\d{2}-\d{2})\s+(.+)$/); if(!m) return null;
+  if(isNaN(new Date(m[1] + 'T00:00:00').getTime())) return null;
+  const tok = m[2].trim().split(/[\s,\/]+/).filter(Boolean), reps = [];
+  while(tok.length && /^\d+$/.test(tok[tok.length - 1])) reps.unshift(parseInt(tok.pop(), 10));
+  if(!reps.length) return null;
+  let weight = null;
+  if(tok.length && /^kg$/i.test(tok[tok.length - 1])){ tok.pop(); if(tok.length && /^\d+(\.\d+)?$/.test(tok[tok.length - 1])) weight = parseFloat(tok.pop()); }
+  else if(tok.length && /^\d+(\.\d+)?kg$/i.test(tok[tok.length - 1])) weight = parseFloat(tok.pop());
+  const name = tok.join(' ').trim(); if(!name) return null;
+  return {date: m[1], name, weight, reps};
+}
+async function importPastText(){
+  const msg = document.getElementById('pastMsg'), btn = document.getElementById('pastBtn');
+  const lines = document.getElementById('pastText').value.split('\n').map(x => x.trim()).filter(Boolean);
+  if(!lines.length){ msg.textContent = 'Paste at least one line first.'; return; }
+  const norm = t => String(t).toLowerCase().replace(/[^a-z0-9]/g, '');
+  const known = {}; Object.values(ROUTINE).forEach(r => r.exercises.forEach(x => { known[norm(x.name)] = x.name; }));
+  const good = [], bad = [], renamed = [], unknown = new Set();
+  lines.forEach(l => {
+    const r = parsePastLine(l); if(!r){ bad.push(l); return; }
+    const k = norm(r.name);
+    if(known[k]){ if(known[k] !== r.name) renamed.push(r.name + ' → ' + known[k]); r.name = known[k]; } else unknown.add(r.name);
+    good.push(r);
+  });
+  if(!good.length){ msg.textContent = '⚠ Could not read any line. Use: 2026-10-14 Weighted pull-ups 20kg 8 8 7 6\nProblem lines:\n' + bad.join('\n'); return; }
+  btn.disabled = true; msg.textContent = 'Saving…';
+  try{
+    histRows = await loadHistRows();
+    const byDate = {}; good.forEach(r => { (byDate[r.date] = byDate[r.date] || []).push(r); });
+    let ok = true;
+    for(const d of Object.keys(byDate)){
+      let row = histRows.find(r => r.date === d);
+      if(!row){ row = {id:'manual-' + d + '-' + Date.now(), date:d, exercises:[]}; histRows.push(row); }
+      byDate[d].forEach(r => row.exercises.push({name:r.name, weight:r.weight, reps:r.reps, restActualSec:r.reps.map(() => null)}));
+      const res = await sb.from(TABLE).upsert({id:row.id, date:row.date, exercises:row.exercises, status:'complete'});
+      if(res.error){ console.error(res.error); ok = false; }
+    }
+    if(!ok){ msg.textContent = '⚠ Some lines could not be saved to the cloud. Try again.'; btn.disabled = false; return; }
+    sessions = await loadSessions(); histRows = await loadHistRows();
+    document.getElementById('pastText').value = '';
+    msg.textContent = '✅ Added ' + good.length + ' exercise(s) on ' + Object.keys(byDate).length + ' day(s).' +
+      (renamed.length ? '\nMatched to plan names: ' + [...new Set(renamed)].join(', ') : '') +
+      (unknown.size ? '\nNot in your plan (saved as typed): ' + [...unknown].join(', ') : '') +
+      (bad.length ? '\n⚠ Skipped lines I could not read:\n' + bad.join('\n') : '');
+    if(state){ state = reconcileWithTemplate(state, state.dayIndex); }
+    renderHistory();
+  }catch(e){ msg.textContent = '⚠ Could not save: ' + (e.message || e); }
+  btn.disabled = false;
+}
+
 // ===================== EDIT PAST WORKOUTS =====================
 // Works on the permanent history rows (id arch-… or manual-…). Nothing here touches this week's live slots.
 let histRows = [];          // [{id, date, exercises:[{name, weight, reps:[], restActualSec:[]}]}]
@@ -2359,6 +2419,7 @@ function renderAiMotivationDisplay(payload){
 
 // ===================== EVENTS =====================
 function bindEvents(){
+  document.getElementById('pastBtn').onclick = importPastText;
   document.getElementById('diagBtn').onclick = runDataCheck;
   document.getElementById('diagSearch').addEventListener('keydown', e => { if(e.key === 'Enter') runDataCheck(); });
   document.getElementById('histPrev').onclick = async () => { if(histDirty){ if(!confirm('Unsaved edits will be lost. Continue?')) return; await discardHistEdits(); } histWeek = addDaysStr(histWeek, -7); histDay = pickDefaultHistDay(); renderHistory(); };
